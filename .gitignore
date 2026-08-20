@@ -23,6 +23,7 @@ env/
 .DS_Store
 .vscode/
 .idea/
+*:Zone.Identifier
 
 # Claude Code local settings
 .claude/settings.local.json
