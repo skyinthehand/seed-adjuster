@@ -56,18 +56,18 @@ spec.md の Key Entities を、research.md で決定した保管先(Cloudflare D
 - `sourceReference`: 入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID
 - `auditSpreadsheetId`: 監査ログ保存先スプレッドシートID(FR-012a。未設定の場合、start.gg入力では実行不可)
 - `settingsSnapshot`: 実行時点で確定した`AdjustmentSettings.effectiveValue`一式のスナップショット(後から「なぜその調整になったか」を追える形で保存)
-- `status`: `queued` → `running` → (`succeeded` | `failed` | `rejected_preflight`)
+- `status`: `queued` → `running` → (`succeeded` | `failed`)。参加者数を理由にした拒否状態は持たない(FR-003a)
 - `startedAt` / `finishedAt`
-- `failureHint`: 失敗時の原因の手がかり(FR-014)
-- `estimatedDurationSeconds` / `entrantCount`: FR-003aの事前見積もり判定に使用した値
+- `failureHint`: 失敗時の原因の手がかり(FR-014)。GitHub Actionsのジョブタイムアウト到達による失敗もここに含まれうる(research.md #8)
+- `estimatedDurationSeconds` / `entrantCount`: FR-003aの事前見積もりに使用した値
+- `sizeWarning`: `{ shown: boolean, reason: string, estimatedDurationSeconds: number, entrantCount: number } | null`。事前見積もりが60分を大幅に超える場合に設定され、運営者向け・結果表示ページ向けの警告表示に使う。設定されていても実行は`queued`のまま進行する(拒否しない)
 - `writebackApproved`: start.gg入力の場合のみ。運営者が書き戻しを承認したかどうか(FR-011)。承認されるまでStartgg側は変更しない
 
 **状態遷移**:
 
 ```text
-queued --(ジョブ起動)--> running --(正常終了)--> succeeded
-running --(エラー)--> failed
-queued --(事前見積もりが閾値超過)--> rejected_preflight
+queued --(ジョブ起動。sizeWarningがあってもブロックしない)--> running --(正常終了)--> succeeded
+running --(エラー、またはジョブタイムアウト到達)--> failed
 succeeded --(start.gg入力かつ運営者が承認)--> (Startggへの書き戻し実行) --> succeeded(writebackApproved=true)
 ```
 

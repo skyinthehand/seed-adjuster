@@ -46,9 +46,8 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
     "auditSpreadsheetId": "string | null"
   }
   ```
-- Response 202: `{ "runId": string, "status": "queued" }`
+- Response 202: `{ "runId": string, "status": "queued", "sizeWarning": { "reason": "string", "estimatedDurationSeconds": number, "entrantCount": number } | null }`。事前見積もり上60分を大幅に超える場合でも実行は拒否せず、`sizeWarning`に警告情報を添えて202を返す(FR-003a)。
 - Response 409: 同一`targetId`に対して実行中のRunが既に存在する(FR-013a)。`{ "error": { "code": "RUN_IN_PROGRESS", "message": "...", "existingRunId": string } }`
-- Response 422: 事前見積もりにより実行を拒否(FR-003a)。`{ "error": { "code": "ESTIMATED_TIME_EXCEEDED", "message": "...", "entrantCount": number, "recommendedMaxEntrants": number } }`
 - Response 428: 監査ログ用スプレッドシート未接続(start.gg入力時、FR-012a)。`{ "error": { "code": "AUDIT_SPREADSHEET_REQUIRED", "message": "..." } }`
 - Response 403: 対象への書き込み権限不足(FR-021)
 
@@ -59,11 +58,12 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   {
     "runId": "string",
     "targetId": "string",
-    "status": "queued" | "running" | "succeeded" | "failed" | "rejected_preflight",
+    "status": "queued" | "running" | "succeeded" | "failed",
     "startedAt": "ISO8601 | null",
     "finishedAt": "ISO8601 | null",
     "failureHint": "string | null",
     "inputSource": "google_sheets" | "startgg",
+    "sizeWarning": { "reason": "string", "estimatedDurationSeconds": number, "entrantCount": number } | null,
     "writebackApproved": "boolean | null"
   }
   ```
