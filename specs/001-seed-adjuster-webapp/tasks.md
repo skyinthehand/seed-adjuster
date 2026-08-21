@@ -57,10 +57,10 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 - [ ] T021 [P] Implement Google Identity Services token-client wrapper (browser-only OAuth, no backend exchange, per research.md #4) in `frontend/src/integrations/googleAuth.ts`
 - [ ] T022 [P] Implement control-plane REST client (run lifecycle: create/status/complete/fail) in `frontend/src/services/controlPlaneClient.ts`
 - [ ] T023 Implement app shell and routing (settings / run / results pages, placeholders) in `frontend/src/App.tsx` and `frontend/src/pages/`
-- [ ] T024 [P] Implement a Pyodide execution-time benchmark (synthetic match-history data, representative entrant counts e.g. 32/128/512/1024/2048, exercises T018's algorithm/T019's Pyodide runtime/T020's match-index query) in `frontend/scripts/benchmarkAlgorithm.ts`
+- [ ] T024 [P] Implement a **reusable** Pyodide execution-time benchmark (synthetic match-history data, representative entrant counts e.g. 32/128/512/1024/2048, exercises T018's algorithm/T019's Pyodide runtime/T020's match-index query), runnable both locally and headlessly in Node (`pyodide` npm package, no browser required) in `frontend/scripts/benchmarkAlgorithm.ts`
 - [ ] T025 Profile and optimize the ported algorithm based on T024's measured results (data-structure/query-batching improvements in `frontend/src/engine/seed_adjuster.py` and `frontend/src/data/matchIndex.ts`); re-run T024 until realistic-scale runs comfortably meet the FR-003/SC-002 60-minute budget
 
-**⚠️ GATE**: T024/T025 must show that realistic-scale runs comfortably meet the 60-minute budget (FR-003/SC-002) before proceeding to Phase 3 (US1). If the client-side (Pyodide/DuckDB-WASM) architecture cannot meet this after optimization, escalate and revisit research.md #1 (execution location) before continuing — do not proceed on an unresolved performance risk. (2026-08-21分析: `/speckit-analyze` finding U1, resolved by adding this gate per user instruction; kept within this spec rather than split into a separate one, since it validates this feature's own core architectural decision rather than delivering independent user value.)
+**⚠️ GATE**: T024/T025 must show that realistic-scale runs comfortably meet the 60-minute budget (FR-003/SC-002) before proceeding to Phase 3 (US1). If the client-side (Pyodide/DuckDB-WASM) architecture cannot meet this after optimization, escalate and revisit research.md #1 (execution location) before continuing — do not proceed on an unresolved performance risk. (2026-08-21分析: `/speckit-analyze` finding U1, resolved by adding this gate per user instruction; kept within this spec rather than split into a separate one, since it validates this feature's own core architectural decision rather than delivering independent user value.) T024 is a **permanent tool, not a one-time spike** — the algorithm will keep changing (optimizations, new constraints, indexer data growth), so this benchmark needs to be re-run again later; T059 (Polish) automates that re-verification in CI so it doesn't rely on anyone remembering to do it by hand.
 
 **Checkpoint**: Foundation ready and performance-validated — user story implementation can now begin.
 
@@ -168,8 +168,9 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 - [ ] T056 [P] Implement GitHub Actions定期実行ワークフロー(indexerを実行しGitHub Releasesへ公開)in `.github/workflows/indexer.yml`
 - [ ] T057 [P] Implement 事前見積もり・`sizeWarning`計算(FR-003a、参加者数と処理時間の関係)in `frontend/src/engine/runEstimate.ts`
 - [ ] T058 [P] トークン非送出の監査(Cloudflare Workers/GitHub Actionsのログ・APIレスポンスにGoogle/start.ggトークンが一切含まれないことを確認、research.md #4・#5)across `control-plane/src/`, `frontend/src/`
-- [ ] T059 Run quickstart.md の全検証シナリオ(US1〜US5・非機能要件)を実施
-- [ ] T060 [P] README作成(frontend/control-plane/indexerのデプロイ手順)in `README.md`
+- [ ] T059 [P] Wire T024's benchmark into a GitHub Actions workflow (`.github/workflows/benchmark.yml`, public repo → free per research.md #0) that runs on every change to `frontend/src/engine/` or `frontend/src/data/` and fails the build if execution time regresses past the FR-003/SC-002 budget — so future algorithm changes are re-verified automatically instead of relying on someone remembering to re-run T024 manually
+- [ ] T060 Run quickstart.md の全検証シナリオ(US1〜US5・非機能要件)を実施
+- [ ] T061 [P] README作成(frontend/control-plane/indexerのデプロイ手順)in `README.md`
 
 ---
 
@@ -181,7 +182,7 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 - **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories
 - **User Stories (Phase 3–7)**: All depend on Foundational phase completion
   - Can proceed in priority order (P1 → P2 → P3 → P4 → P5) for a single implementer, or in parallel per story for a team
-- **Polish (Phase 8)**: Depends on the user stories being implemented that it touches (indexer tasks T055/T056 have no story dependency and can start anytime after Setup; T057–T059 depend on US1–US4 being functional)
+- **Polish (Phase 8)**: Depends on the user stories being implemented that it touches (indexer tasks T055/T056 have no story dependency and can start anytime after Setup; T059's CI wiring only depends on T024 (Foundational) and can also start anytime; T057/T058/T060 depend on US1–US4 being functional)
 
 ### User Story Dependencies
 
@@ -229,7 +230,7 @@ Task: "Implement minimal Google account connect UI in frontend/src/pages/Setting
 4. US3 追加 → 単独検証 → デプロイ/デモ
 5. US4 追加 → 単独検証 → デプロイ/デモ
 6. US5 追加 → 単独検証 → デプロイ/デモ
-7. Polish(indexer本番稼働・見積もり精度・トークン漏洩監査・quickstart全検証)
+7. Polish(indexer本番稼働・見積もり精度・トークン漏洩監査・ベンチマークのCI自動化・quickstart全検証)
 
 ### Parallel Team Strategy
 
@@ -251,6 +252,7 @@ Task: "Implement minimal Google account connect UI in frontend/src/pages/Setting
 - 重い計算(調整アルゴリズム・対戦履歴クエリ)はすべてブラウザ内(Pyodide/DuckDB-WASM)で完結する。`control-plane`は状態記録・設定・公開結果キャッシュのみを扱う薄い層(research.md #0〜#3)
 - 同一対象への多重実行はブロックしない(spec.md Clarifications 方針変更、2026-08-21)
 - Startgg CORSリレー(T043)は実装着手前にstart.gg APIのCORS対応状況を検証し、不要と判明すれば省略してよい(research.md #6)
+- アルゴリズムの実行速度検証(T024)は一度きりのスパイクではなく、継続的に再検証が必要な性質のもの。T059でCIに組み込み、以後の変更のたびに自動で再確認する(2026-08-21の指摘を反映)
 - Commit after each task or logical group
 - Stop at any checkpoint to validate a story independently
 - Avoid: vague tasks, same-file conflicts marked [P], cross-story dependencies that break independence
