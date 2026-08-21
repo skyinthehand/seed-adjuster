@@ -39,8 +39,26 @@ function loadGisScript(): Promise<void> {
   return gisScriptPromise;
 }
 
+/**
+ * Kicks off loading the GIS script ahead of time (e.g. on page mount), so that by the time
+ * the user clicks "connect", requestAccessToken() below fires synchronously within the click
+ * handler. Without this, the network fetch for the script can eat enough time between the
+ * click and requestAccessToken() that browsers silently block the popup as not being a
+ * direct result of user interaction.
+ */
+export function preloadGoogleIdentityServices(): void {
+  loadGisScript().catch(() => {
+    // Swallowed here; connectGoogleAccount() surfaces the same failure to the caller.
+  });
+}
+
 /** Opens the Google consent flow if needed and resolves once an access token is available. */
 export async function connectGoogleAccount(clientId: string): Promise<string> {
+  if (!clientId) {
+    throw new Error(
+      "Google OAuthクライアントIDが設定されていません(VITE_GOOGLE_OAUTH_CLIENT_ID)。デプロイ設定を確認してください。",
+    );
+  }
   await loadGisScript();
   return new Promise((resolve, reject) => {
     const client = window.google!.accounts.oauth2.initTokenClient({

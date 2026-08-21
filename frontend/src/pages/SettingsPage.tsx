@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { connectGoogleAccount, isGoogleConnected } from "../integrations/googleAuth";
+import { connectGoogleAccount, isGoogleConnected, preloadGoogleIdentityServices } from "../integrations/googleAuth";
 import { saveStartggToken, isStartggConnected } from "../integrations/startgg";
 import { GOOGLE_OAUTH_CLIENT_ID } from "../config";
 import { getSettings, putSettings, type AdjustmentSettings } from "../services/controlPlaneClient";
@@ -17,6 +17,7 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    preloadGoogleIdentityServices();
     isStartggConnected().then(setStartggConnected);
   }, []);
 
