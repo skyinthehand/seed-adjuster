@@ -1,10 +1,10 @@
 # API Contract: 制御プレーン(Cloudflare Workers)公開インターフェース
 
-フロントエンド(GitHub Pages上の静的SPA)がCloudflare Workers上の制御プレーンAPIを呼び出す際の契約。**重い計算(調整アルゴリズムの実行、Google Sheets/start.ggの読み書き)はすべてブラウザが直接行い、制御プレーンはそれらの認証情報を一切扱わない**(research.md #5, #6)。制御プレーンの役割は、複数の利用者・端末間で共有される状態(実行ロック・パラメータ設定・公開結果キャッシュ)の管理のみに限定される。
+フロントエンド(GitHub Pages上の静的SPA)がCloudflare Workers上の制御プレーンAPIを呼び出す際の契約。**重い計算(調整アルゴリズムの実行、Google Sheets/start.ggの読み書き)はすべてブラウザが直接行い、制御プレーンはそれらの認証情報を一切扱わない**(research.md #4, #5)。制御プレーンの役割は、複数の利用者・端末間で共有される状態(パラメータ設定・実行履歴・公開結果キャッシュ)の管理のみに限定される。**同一対象への複数実行を妨げるロック機構は持たない**(方針変更、spec.md Clarifications参照)。
 
 `GET /public/*` 配下は認証不要(FR-012b)。それ以外のエンドポイントは特別な認証を必要としない(制御プレーンが扱う情報に秘匿情報が含まれないため)が、`runId`のような推測困難な識別子で操作対象を特定する。エラーレスポンスは共通形式 `{ "error": { "code": string, "message": string } }` を用いる。
 
-**注記**: 以前の設計にあった `/auth/google/*`(OAuth認可コード交換)、`/auth/startgg/token`(サーバー側トークン保存)、`/internal/*`(GitHub Actions OIDC検証による資格情報払い出し)は、認証がすべてブラウザ内で完結するようになったことに伴い廃止された(research.md #5, #6)。
+**注記**: 以前の設計にあった `/auth/google/*`(OAuth認可コード交換)、`/auth/startgg/token`(サーバー側トークン保存)、`/internal/*`(GitHub Actions OIDC検証による資格情報払い出し)は、認証がすべてブラウザ内で完結するようになったことに伴い廃止された(research.md #4, #5)。同様に、以前あった `POST /runs/{runId}/heartbeat`(多重実行ロックの生存確認)は、ロック機構自体の撤回に伴い廃止された(research.md #3)。
 
 ## 設定
 
@@ -17,12 +17,12 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
 - Request: `{ "wizardAnswers": object, "overrides": object }`
 - Response 200: 更新後の`AdjustmentSettings`
 
-## 実行(ロック・進捗・結果提出)
+## 実行(記録・進捗・結果提出)
 
-計算そのものはブラウザ内(Pyodide/DuckDB-WASM)で行われる。以下のエンドポイントは、複数利用者間での多重実行防止(FR-013a)と、認証なしで閲覧できる公開結果(FR-012b)を成立させるための状態管理に用いる。
+計算そのものはブラウザ内(Pyodide/DuckDB-WASM)で行われる。以下のエンドポイントは、認証なしで閲覧できる公開結果(FR-012b)・実行履歴(FR-016)を成立させるための記録に用いる。**同一対象への複数実行は妨げない**(方針変更、spec.md Clarifications参照)。
 
 ### `POST /runs`
-シード自動調整の実行意図を登録し、対象への排他ロックを取得する。ブラウザは、このレスポンスで`runId`を受け取った後にローカルでの計算を開始する。
+シード自動調整の実行記録を作成する。ブラウザは、このレスポンスで`runId`を受け取った後にローカルでの計算を開始する。同一`targetId`に対して他に実行中のRunがあっても拒否しない。
 - Request:
   ```json
   {
@@ -36,16 +36,10 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   }
   ```
 - Response 202: `{ "runId": string, "status": "queued", "sizeWarning": { "reason": "string", "estimatedDurationSeconds": number, "entrantCount": number } | null }`。事前見積もり上60分を大幅に超える場合でも実行は拒否せず、`sizeWarning`に警告情報を添えて202を返す(FR-003a)。
-- Response 409: 同一`targetId`に対して実行中(ハートビート有効期限内)のRunが既に存在する(FR-013a)。`{ "error": { "code": "RUN_IN_PROGRESS", "message": "...", "existingRunId": string } }`
 - Response 428: 監査ログ用スプレッドシート未接続(start.gg入力時、FR-012a)。`{ "error": { "code": "AUDIT_SPREADSHEET_REQUIRED", "message": "..." } }`
 
-### `POST /runs/{runId}/heartbeat`
-クライアントが計算中、一定間隔で呼び出す(research.md #4)。`status`を`running`に確定させ、`lastHeartbeatAt`を更新する。
-- Response 200: `{ "runId": string, "status": "running" }`
-- Response 404/410: 当該`runId`が既にハートビート途絶により`failed`とされた場合
-
 ### `POST /runs/{runId}/complete`
-計算完了後、ブラウザが公開結果のサニタイズ済みコピー(非公開評価値を含まない)を提出する(research.md #8)。`status`を`succeeded`にする。
+計算完了後、ブラウザが公開結果のサニタイズ済みコピー(非公開評価値を含まない)を提出する(research.md #7)。`status`を`succeeded`にする。
 - Request:
   ```json
   {
@@ -109,7 +103,7 @@ start.gg入力の場合、運営者が確認画面で書き戻しを承認し、
 同一対象に対する過去の実行一覧を返す(FR-016)。
 - Response 200: `{ "runs": [ { "runId": string, "finishedAt": "ISO8601", "inputSource": "string" } ] }`(新しい順)
 
-## start.gg CORSリレー(条件付き、research.md #7)
+## start.gg CORSリレー(条件付き、research.md #6)
 
 start.gg APIがブラウザからの直接呼び出し(CORS)を許可しない場合にのみ用いる。実装前に検証し、不要と判明すればこのエンドポイントは実装しない。
 

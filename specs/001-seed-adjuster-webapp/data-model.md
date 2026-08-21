@@ -8,9 +8,9 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 
 | エンティティ | 保管先 | 備考 |
 |---|---|---|
-| ConnectedAccount | ブラウザローカル(IndexedDB / メモリ) | サーバーには一切送信・保存しない(research.md #5, #6) |
+| ConnectedAccount | ブラウザローカル(IndexedDB / メモリ) | サーバーには一切送信・保存しない(research.md #4, #5) |
 | AdjustmentSettings | Cloudflare D1(control-plane) | 対象(大会)単位で保持。秘匿情報を含まない共有状態 |
-| AdjustmentRun | Cloudflare D1(control-plane) | 実行状態・ロックを兼ねる。ハートビートによる生存確認あり |
+| AdjustmentRun | Cloudflare D1(control-plane) | 実行状態の記録。ロックは行わず、同一対象への複数実行を許容する(research.md #3) |
 | SeedEntry | 実行時にGoogleスプレッドシート/start.ggからブラウザが直接読み込む(永続保管はしない) | |
 | AdjustedSeedResult | Googleスプレッドシート(監査ログ用、ブラウザが直接書き込む) + D1(ブラウザが提出する公開用サニタイズ済みコピー) | 公開結果APIの読み出し元はD1側 |
 | DecisionLog | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | 既存ノートブックのmatch_log相当 |
@@ -24,9 +24,9 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 
 利用者ごとのGoogle/start.gg連携状態。**このエンティティはいかなるサーバーにも存在せず、利用者自身のブラウザ内にのみ存在する。**
 
-- `googleAccessToken`: Google Identity Servicesのトークンクライアントから取得した短命なアクセストークン。ブラウザのメモリ内(実行中のセッションの間)にのみ保持し、永続化しない(research.md #5)
+- `googleAccessToken`: Google Identity Servicesのトークンクライアントから取得した短命なアクセストークン。ブラウザのメモリ内(実行中のセッションの間)にのみ保持し、永続化しない(research.md #4)
 - `googleGrantedScopes`: 付与されたOAuthスコープ一覧(Sheets読み書き・専用スプレッドシート作成用のDrive file scope等)
-- `startggAccessToken`: 利用者が設定ページに入力したstart.gg個人アクセストークン。ブラウザのIndexedDBに保存し、次回訪問時も再入力を省略できるようにする(research.md #6)
+- `startggAccessToken`: 利用者が設定ページに入力したstart.gg個人アクセストークン。ブラウザのIndexedDBに保存し、次回訪問時も再入力を省略できるようにする(research.md #5)
 
 **バリデーション**: 書き込み系操作(実行開始・設定変更・Startgg書き戻し)は、ブラウザが保持するこのトークンの権限範囲内でのみ行われる(FR-020)。サーバー側はこれらのトークンを一切検証・保管しないため、認可はGoogle/start.gg自身のAPIが行う。
 
@@ -46,7 +46,7 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 
 ## AdjustmentRun(Cloudflare D1)
 
-シード自動調整1回分の実行。実行状態の管理と、対象ごとの多重実行ロック(FR-013a)を兼ねる。**計算そのものはブラウザ内で行われ、Workerはその開始・進捗・完了をブラウザからの報告として記録するのみ。**
+シード自動調整1回分の実行記録。**計算そのものはブラウザ内で行われ、Workerはその開始・進捗・完了をブラウザからの報告として記録するのみ。ロックは行わず、同一対象への複数実行を妨げない**(方針変更、spec.md Clarifications参照。research.md #3)。
 
 - `runId`: 一意識別子(公開結果ページのURLにも使用)
 - `targetId`: 対象の識別子(AdjustmentSettingsと同じ単位)
@@ -56,21 +56,18 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 - `settingsSnapshot`: 実行時点で確定した`AdjustmentSettings.effectiveValue`一式のスナップショット(後から「なぜその調整になったか」を追える形で保存)
 - `status`: `queued` → `running` → (`succeeded` | `failed`)。参加者数を理由にした拒否状態は持たない(FR-003a)
 - `startedAt` / `finishedAt`
-- `lastHeartbeatAt`: クライアントが`running`中に定期送信するハートビートの最終受信時刻(research.md #4)
-- `failureHint`: 失敗時の原因の手がかり(FR-014)。ハートビート途絶による自動失効の場合は「タブが閉じられたか、通信が途切れた可能性があります」等を記録する(research.md #4)
+- `failureHint`: 失敗時の原因の手がかり(FR-014)。ブラウザが`fail`報告を送れないまま処理が止まった場合(タブが閉じられた等)、`status`は`running`のまま残りうる。これは公開結果APIやFR-016の履歴表示上は「未完了の実行」として自然に扱われ、他の実行を妨げることはない
 - `estimatedDurationSeconds` / `entrantCount`: FR-003aの事前見積もりに使用した値
 - `sizeWarning`: `{ shown: boolean, reason: string, estimatedDurationSeconds: number, entrantCount: number } | null`。事前見積もりが60分を大幅に超える場合に設定され、運営者向け・結果表示ページ向けの警告表示に使う。設定されていても実行は`queued`のまま進行する(拒否しない)
-- `writebackApproved`: start.gg入力の場合のみ。運営者が書き戻しを承認したかどうか(FR-011)。承認されるまでStartgg側は変更しない。書き戻し自体もブラウザから直接start.gg APIへ行われ、Workerへはその実行結果が事後報告されるのみ
+- `writebackApproved`: start.gg入力の場合のみ。運営者が書き戻しを承認したかどうか(FR-011)。承認されるまでStartgg側は変更しない。書き戻し自体もブラウザから直接start.gg APIへ行われ、Workerへはその実行結果が事後報告されるのみ。同一対象に対して複数の実行が独立に承認された場合、後から承認された書き戻しが先の書き戻しを上書きしうることを許容する(spec.md Assumptions参照)
 
 **状態遷移**:
 
 ```text
-queued --(クライアントがロック取得に成功、計算開始)--> running --(正常終了・complete報告)--> succeeded
-running --(エラー報告、またはハートビート途絶によるタイムアウト)--> failed
+queued --(クライアントが計算開始)--> running --(正常終了・complete報告)--> succeeded
+running --(エラー報告)--> failed
 succeeded --(start.gg入力かつ運営者が承認・ブラウザが直接書き戻しを実行)--> (writeback-recorded報告) --> succeeded(writebackApproved=true)
 ```
-
-**多重実行防止**: `targetId`に対して`status`が`queued`または`running`(かつハートビートが有効期限内)のAdjustmentRunが既に存在する場合、新規AdjustmentRunの作成をD1のトランザクション(SQLiteのUNIQUE制約+トランザクション)で拒否する(FR-013a)。ハートビートが途絶した`running`は自動的に`failed`とみなされ、ロックとして扱われなくなる(research.md #4)。
 
 ---
 
@@ -95,7 +92,7 @@ succeeded --(start.gg入力かつ運営者が承認・ブラウザが直接書�
 - `entries[]`: 各選手について `{ displayName, userId, adjustedPosition, originalPosition, adjustedWave }`
 - `hiddenValue`は含まない(公開用コピー作成時点でブラウザ側が除外する。FR-012b)
 
-**保存先**: (1) 監査ログ用スプレッドシートに新規シートとして、ブラウザが直接追記(FR-012)。Google Sheets入力の場合はさらに元のスプレッドシート内にも同内容が追記される(FR-009)。(2) 認証なしの公開結果APIから読めるよう、ブラウザが`POST /runs/{runId}/complete`でCloudflare D1へサニタイズ済みコピーを提出する(research.md #8)。
+**保存先**: (1) 監査ログ用スプレッドシートに新規シートとして、ブラウザが直接追記(FR-012)。Google Sheets入力の場合はさらに元のスプレッドシート内にも同内容が追記される(FR-009)。(2) 認証なしの公開結果APIから読めるよう、ブラウザが`POST /runs/{runId}/complete`でCloudflare D1へサニタイズ済みコピーを提出する(research.md #7)。
 
 ---
 
