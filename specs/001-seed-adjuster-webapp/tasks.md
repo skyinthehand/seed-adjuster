@@ -74,12 +74,12 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 ### Implementation for User Story 1
 
-- [ ] T026 [P] [US1] Implement Google Sheets read/write client (シード表読み込み・監査ログシート追記) in `frontend/src/integrations/googleSheets.ts`
-- [ ] T027 [P] [US1] Implement 実行ページ(入力元=Googleスプレッドシート選択、スプレッドシートID/ワークシート名入力フォーム)in `frontend/src/pages/RunPage.tsx`
-- [ ] T028 [US1] Implement run orchestration (fetch match index via T020 → load Pyodide via T019 → read sheet via T026 → run algorithm via T018 → write result sheet via T026 → `POST /runs` + `/complete` via T022) in `frontend/src/engine/runAdjustment.ts`
-- [ ] T029 [US1] Wire fixed-seed-count exclusion (FR-005) and Wave-constraint handling (FR-006) through `frontend/src/engine/runAdjustment.ts` and `frontend/src/engine/seed_adjuster.py`
-- [ ] T030 [P] [US1] Implement minimal Google account connect UI (FR-001) in `frontend/src/pages/SettingsPage.tsx`
-- [ ] T031 [US1] Implement permission-error handling and user-facing message for insufficient Sheets access (FR-021, Acceptance Scenario 4) in `frontend/src/integrations/googleSheets.ts`
+- [X] T026 [P] [US1] Implement Google Sheets read/write client (シード表読み込み・監査ログシート追記) in `frontend/src/integrations/googleSheets.ts`
+- [X] T027 [P] [US1] Implement 実行ページ(入力元=Googleスプレッドシート選択、スプレッドシートID/ワークシート名入力フォーム)in `frontend/src/pages/RunPage.tsx`
+- [X] T028 [US1] Implement run orchestration (fetch match index via T020 → load Pyodide via T019 → read sheet via T026 → run algorithm via T018 → write result sheet via T026 → `POST /runs` + `/complete` via T022) in `frontend/src/engine/runAdjustment.ts`
+- [X] T029 [US1] Wire fixed-seed-count exclusion (FR-005) and Wave-constraint handling (FR-006) through `frontend/src/engine/runAdjustment.ts` and `frontend/src/engine/seed_adjuster.py`
+- [X] T030 [P] [US1] Implement minimal Google account connect UI (FR-001) in `frontend/src/pages/SettingsPage.tsx`
+- [X] T031 [US1] Implement permission-error handling and user-facing message for insufficient Sheets access (FR-021, Acceptance Scenario 4) in `frontend/src/integrations/googleSheets.ts`
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — this is the MVP.
 
@@ -93,10 +93,10 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 ### Implementation for User Story 2
 
-- [ ] T032 [P] [US2] Implement run-status display (`queued`/`running`/`succeeded`/`failed`, polling `GET /runs/{runId}` via T022) in `frontend/src/pages/RunStatusPage.tsx`
-- [ ] T033 [US2] Implement `beforeunload` leave-warning while a run is in-flight (FR-013) in `frontend/src/engine/runAdjustment.ts`
-- [ ] T034 [US2] Implement `failureHint` display on failure in `frontend/src/pages/RunStatusPage.tsx`
-- [ ] T035 [P] [US2] Confirm `POST /runs` accepts concurrent runs for the same `targetId` without blocking (spec.md Clarifications 方針変更) — add a regression note/assertion in `control-plane/src/api/runs.ts`
+- [X] T032 [P] [US2] Implement run-status display (`queued`/`running`/`succeeded`/`failed`, polling `GET /runs/{runId}` via T022) in `frontend/src/pages/RunStatusPage.tsx`
+- [X] T033 [US2] Implement `beforeunload` leave-warning while a run is in-flight (FR-013) in `frontend/src/engine/runAdjustment.ts`(実装済み、T028と同時に作成)
+- [X] T034 [US2] Implement `failureHint` display on failure in `frontend/src/pages/RunStatusPage.tsx`
+- [X] T035 [P] [US2] Confirm `POST /runs` accepts concurrent runs for the same `targetId` without blocking (spec.md Clarifications 方針変更) — add a regression note/assertion in `control-plane/src/api/runs.ts`(T014のコードコメントで明記済み。ロック機構自体を実装していないため、この動作は設計上保証されている)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
 
@@ -110,11 +110,11 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 ### Implementation for User Story 3
 
-- [ ] T036 [P] [US3] Implement `GET /public/results/{runId}` endpoint (returns the copy submitted in T016) in `control-plane/src/api/public.ts`
-- [ ] T037 [US3] Implement `GET /public/runs?targetId=` endpoint (same file as T036) in `control-plane/src/api/public.ts`
-- [ ] T038 [P] [US3] Implement 結果表示ページ(調整前後のシード比較、配置理由。Pyodide/DuckDB-WASMは読み込まない)in `frontend/src/pages/ResultsPage.tsx`
-- [ ] T039 [US3] Implement Wave制約違反一覧の強調表示(同ファイル)in `frontend/src/pages/ResultsPage.tsx`
-- [ ] T040 [US3] Implement 過去の実行一覧セレクター(`GET /public/runs`を利用、同ファイル)in `frontend/src/pages/ResultsPage.tsx`
+- [X] T036 [P] [US3] Implement `GET /public/results/{runId}` endpoint (returns the copy submitted in T016) in `control-plane/src/api/public.ts`
+- [X] T037 [US3] Implement `GET /public/runs?targetId=` endpoint (same file as T036) in `control-plane/src/api/public.ts`
+- [X] T038 [P] [US3] Implement 結果表示ページ(調整前後のシード比較、配置理由。Pyodide/DuckDB-WASMは読み込まない)in `frontend/src/pages/ResultsPage.tsx`
+- [X] T039 [US3] Implement Wave制約違反一覧の強調表示(同ファイル)in `frontend/src/pages/ResultsPage.tsx`
+- [X] T040 [US3] Implement 過去の実行一覧セレクター(`GET /public/runs`を利用、同ファイル)in `frontend/src/pages/ResultsPage.tsx`
 
 **Checkpoint**: User Stories 1, 2, and 3 all work independently.
 
@@ -128,14 +128,14 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 ### Implementation for User Story 4
 
-- [ ] T041 [P] [US4] Implement start.gg個人アクセストークン入力欄(IndexedDB保存のみ、サーバー送信なし。research.md #5)in `frontend/src/pages/SettingsPage.tsx`
-- [ ] T042 [P] [US4] Implement start.gg GraphQLクライアント(ブラウザから直接呼び出し。CORS未対応時は`POST /relay/startgg`にフォールバック。research.md #6)in `frontend/src/integrations/startgg.ts`
-- [ ] T043 [P] [US4] Implement `POST /relay/startgg` CORSリレー(条件付き、資格情報・リクエスト内容は一切ログしない)in `control-plane/src/api/relay.ts`
-- [ ] T044 [US4] Implement Startgg入力元選択・イベント/フェーズ指定UI(同ファイル、T027で作成済み)in `frontend/src/pages/RunPage.tsx`
-- [ ] T045 [US4] Implement `PreAdjustmentSeedSnapshot`生成(個人情報を含めない、FR-012c)in `frontend/src/integrations/startgg.ts`
-- [ ] T046 [US4] Implement 監査ログ用スプレッドシート未接続ゲート(FR-012a、`POST /runs`の428応答を処理)in `frontend/src/engine/runAdjustment.ts`
-- [ ] T047 [P] [US4] Implement 書き戻し確認画面(反映前に調整後の並び順・理由を表示)in `frontend/src/pages/WritebackConfirmPage.tsx`
-- [ ] T048 [US4] Implement 書き戻し実行・権限チェック・完了報告(`POST /runs/{runId}/writeback-recorded`呼び出し)in `frontend/src/integrations/startgg.ts`
+- [X] T041 [P] [US4] Implement start.gg個人アクセストークン入力欄(IndexedDB保存のみ、サーバー送信なし。research.md #5)in `frontend/src/pages/SettingsPage.tsx`
+- [X] T042 [P] [US4] Implement start.gg GraphQLクライアント(ブラウザから直接呼び出し。CORS未対応時は`POST /relay/startgg`にフォールバック。research.md #6)in `frontend/src/integrations/startgg.ts`(実データでのstart.gg IDマッピング未検証、コード内コメントに明記)
+- [X] T043 [P] [US4] Implement `POST /relay/startgg` CORSリレー(条件付き、資格情報・リクエスト内容は一切ログしない)in `control-plane/src/api/relay.ts`
+- [X] T044 [US4] Implement Startgg入力元選択・イベント/フェーズ指定UI(同ファイル、T027で作成済み)in `frontend/src/pages/RunPage.tsx`(analyze finding G1の監査ログスプレッドシート指定/自動作成UIもここで解消)
+- [X] T045 [US4] Implement `PreAdjustmentSeedSnapshot`生成(個人情報を含めない、FR-012c)in `frontend/src/integrations/startgg.ts`
+- [X] T046 [US4] Implement 監査ログ用スプレッドシート未接続ゲート(FR-012a、`POST /runs`の428応答を処理)in `frontend/src/engine/runAdjustment.ts`
+- [X] T047 [P] [US4] Implement 書き戻し確認画面(反映前に調整後の並び順・理由を表示)in `frontend/src/pages/WritebackConfirmPage.tsx`
+- [X] T048 [US4] Implement 書き戻し実行・権限チェック・完了報告(`POST /runs/{runId}/writeback-recorded`呼び出し)in `frontend/src/integrations/startgg.ts`
 - [X] T049 [US4] Implement `POST /runs/{runId}/writeback-recorded` endpoint in `control-plane/src/api/runs.ts` (done opportunistically alongside T014–T017 since it's the same file/router)
 
 **Checkpoint**: User Stories 1–4 all work independently.
@@ -150,11 +150,11 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 ### Implementation for User Story 5
 
-- [ ] T050 [P] [US5] Implement `GET /settings/{targetId}` / `PUT /settings/{targetId}` endpoints in `control-plane/src/api/settings.ts`
-- [ ] T051 [US5] Implement Yes/No質問ウィザードUI(FR-018)in `frontend/src/pages/SettingsPage.tsx`
-- [ ] T052 [P] [US5] Implement `resolvedDefaults`導出ロジック(wizardAnswers → 推奨既定値)in `frontend/src/engine/settingsDefaults.ts`
-- [ ] T053 [US5] Implement 個別パラメータ上書き入力(FR-019、`effectiveValue`優先順位)in `frontend/src/pages/SettingsPage.tsx`
-- [ ] T054 [US5] Wire `settingsSnapshot`(`AdjustmentSettings.effectiveValue`)を`frontend/src/engine/runAdjustment.ts`に接続し、US1で使っていた既定値をこの設定サービス由来の値に置き換える
+- [X] T050 [P] [US5] Implement `GET /settings/{targetId}` / `PUT /settings/{targetId}` endpoints in `control-plane/src/api/settings.ts`
+- [X] T051 [US5] Implement Yes/No質問ウィザードUI(FR-018)in `frontend/src/pages/SettingsPage.tsx`
+- [X] T052 [P] [US5] Implement `resolvedDefaults`導出ロジック(wizardAnswers → 推奨既定値)in `frontend/src/engine/settingsDefaults.ts`
+- [X] T053 [US5] Implement 個別パラメータ上書き入力(FR-019、`effectiveValue`優先順位)in `frontend/src/pages/SettingsPage.tsx`
+- [X] T054 [US5] Wire `settingsSnapshot`(`AdjustmentSettings.effectiveValue`)を`frontend/src/engine/runAdjustment.ts`に接続し、US1で使っていた既定値をこの設定サービス由来の値に置き換える(`resolveEffectiveSettings()`をRunPage.tsxから呼び出す形で実装)
 
 **Checkpoint**: All user stories are independently functional.
 
@@ -166,11 +166,11 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 - [X] T055 [P] Implement smash_database増分走査+Parquet生成(選手ペア単位、参照期間の上限あり。research.md #2)in `indexer/src/build_index.py`(実装メモ: research.md #2の実測により全期間フル再構築でも8〜14MB程度と分かったため、状態管理付きの真の増分更新ではなく毎回フル再構築する設計に簡略化。コード内コメントに明記)
 - [X] T056 [P] Implement GitHub Actions定期実行ワークフロー(indexerを実行しGitHub Releasesへ公開)in `.github/workflows/indexer.yml`
-- [ ] T057 [P] Implement 事前見積もり・`sizeWarning`計算(FR-003a、参加者数と処理時間の関係)in `frontend/src/engine/runEstimate.ts`
-- [ ] T058 [P] トークン非送出の監査(Cloudflare Workers/GitHub Actionsのログ・APIレスポンスにGoogle/start.ggトークンが一切含まれないことを確認、research.md #4・#5)across `control-plane/src/`, `frontend/src/`
+- [X] T057 [P] Implement 事前見積もり・`sizeWarning`計算(FR-003a、参加者数と処理時間の関係)in `frontend/src/engine/runEstimate.ts`(T028が依存するため前倒しで実装。T024/T025の実測ベンチマーク値から近似式を導出)
+- [X] T058 [P] トークン非送出の監査(Cloudflare Workers/GitHub Actionsのログ・APIレスポンスにGoogle/start.ggトークンが一切含まれないことを確認、research.md #4・#5)across `control-plane/src/`, `frontend/src/`(結果: `console.*`呼び出し・トークンのDB保存・control-planeへの送信は皆無。副次的に発見した実バグとして、`POST /relay/startgg`が`Authorization`ヘッダーを転送するにも関わらずCORSプリフライトが`Content-Type`のみ許可しておりリレー有効化時に壊れる状態だったため`control-plane/src/api/http.ts`を修正)
 - [X] T059 [P] Wire T024's benchmark into a GitHub Actions workflow (`.github/workflows/benchmark.yml`, public repo → free per research.md #0) that runs on every change to `frontend/src/engine/` or `frontend/src/data/` and fails the build if execution time regresses past the FR-003/SC-002 budget — so future algorithm changes are re-verified automatically instead of relying on someone remembering to re-run T024 manually
-- [ ] T060 Run quickstart.md の全検証シナリオ(US1〜US5・非機能要件)を実施
-- [ ] T061 [P] README作成(frontend/control-plane/indexerのデプロイ手順)in `README.md`
+- [X] T060 Run quickstart.md の全検証シナリオ(US1〜US5・非機能要件)を実施(実施範囲の制約: このCLI環境には実ブラウザ・実Googleアカウント・実start.ggアカウント・デプロイ済みCloudflare Workers/D1/GitHub Pages/indexerが存在しないため、真のE2E手動検証は未実施。代わりに`wrangler dev --local`+ローカルD1でcontrol-plane APIをcurlで契約通り動くことを検証: シナリオ2の多重実行非ブロック、シナリオ3のGET /public/results認証不要アクセス・GET /public/runs一覧、シナリオ4のPOST /runs 428ゲート・writeback-recordedの200→409状態遷移、シナリオ5のsettings GET/PUT、T058で見つけたCORS Authorizationヘッダー修正の反映を確認。フロントエンドは`vite build`が実プロダクション設定で成功することを確認。非機能要件のうち60分以内完了(SC-002)・大規模警告(SC-002a)はT024/T025の実測Pyodideベンチマークで既に検証済み(README/analysis-report.md参照)、以後はT059のCIで継続検証される。Googleアカウント連携・実スプレッドシート読み書き・start.gg書き戻し・Network/Memoryタブでの目視確認・課金不発生の実地確認は、デプロイ後に運営者自身の手動検証が必要(README.mdのデプロイ手順を参照)
+- [X] T061 [P] README作成(frontend/control-plane/indexerのデプロイ手順)in `README.md`
 
 ---
 

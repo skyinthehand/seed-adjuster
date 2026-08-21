@@ -2,7 +2,9 @@
 
 const CORS_HEADERS_BASE = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  // Authorization is required for POST /relay/startgg, which forwards the browser's
+  // start.gg token straight through (never stored, never logged — see relay.ts).
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 export function corsHeaders(allowedOrigin: string): HeadersInit {

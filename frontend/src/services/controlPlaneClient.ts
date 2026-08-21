@@ -89,3 +89,76 @@ export function completeRun(runId: string, input: CompleteRunRequest): Promise<{
 export function failRun(runId: string, failureHint: string): Promise<{ runId: string; status: "failed" }> {
   return request(`/runs/${runId}/fail`, { method: "POST", body: JSON.stringify({ failureHint }) });
 }
+
+export function recordWriteback(runId: string): Promise<{ runId: string; writebackApproved: true }> {
+  return request(`/runs/${runId}/writeback-recorded`, { method: "POST" });
+}
+
+// --- Public (no auth) — US3 ---
+
+export interface AdjustedEntry {
+  displayName: string;
+  adjustedPosition: number;
+  originalPosition: number;
+  adjustedWave: string | null;
+}
+
+export interface DecisionLogEntry {
+  position: number;
+  comparedCandidates: { candidateDisplayName: string; matchPointValue: number }[];
+  decisionLogicType: string;
+}
+
+export interface WaveConstraintViolation {
+  position: number;
+  playerDisplayName: string;
+  wave: string;
+  allowedWaves: string[];
+}
+
+export interface PublicResult {
+  runId: string;
+  targetId: string;
+  inputSource: InputSource;
+  finishedAt: string;
+  adjustedEntries: AdjustedEntry[];
+  decisionLog: DecisionLogEntry[];
+  waveConstraintViolations: WaveConstraintViolation[];
+  preAdjustmentSnapshot: { displayName: string; originalPosition: number }[] | null;
+}
+
+export function getPublicResult(runId: string): Promise<PublicResult> {
+  return request(`/public/results/${runId}`);
+}
+
+export interface RunHistoryEntry {
+  runId: string;
+  finishedAt: string;
+  inputSource: InputSource;
+}
+
+export function listPublicRuns(targetId: string): Promise<{ runs: RunHistoryEntry[] }> {
+  return request(`/public/runs?targetId=${encodeURIComponent(targetId)}`);
+}
+
+// --- Settings (US5) ---
+
+export interface AdjustmentSettings {
+  wizardAnswers: Record<string, unknown>;
+  resolvedDefaults: Record<string, unknown>;
+  overrides: Record<string, unknown>;
+}
+
+export function getSettings(targetId: string): Promise<AdjustmentSettings> {
+  return request(`/settings/${encodeURIComponent(targetId)}`);
+}
+
+export function putSettings(
+  targetId: string,
+  input: Pick<AdjustmentSettings, "wizardAnswers" | "overrides" | "resolvedDefaults">,
+): Promise<AdjustmentSettings> {
+  return request(`/settings/${encodeURIComponent(targetId)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}

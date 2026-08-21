@@ -5,6 +5,9 @@ import {
   handleFailRun,
   handleWritebackRecorded,
 } from "./api/runs";
+import { handleGetPublicResult, handleListPublicRuns } from "./api/public";
+import { handleStartggRelay } from "./api/relay";
+import { handleGetSettings, handlePutSettings } from "./api/settings";
 import { corsHeaders, errorResponse } from "./api/http";
 
 export interface Env {
@@ -45,6 +48,26 @@ export default {
 async function route(pathname: string, method: string, request: Request, env: Env): Promise<Response> {
   if (pathname === "/runs" && method === "POST") {
     return handleCreateRun(request, env);
+  }
+
+  if (pathname === "/public/runs" && method === "GET") {
+    return handleListPublicRuns(request, env);
+  }
+
+  if (pathname === "/relay/startgg" && method === "POST") {
+    return handleStartggRelay(request);
+  }
+
+  const settingsMatch = pathname.match(/^\/settings\/([^/]+)$/);
+  if (settingsMatch) {
+    const targetId = decodeURIComponent(settingsMatch[1]);
+    if (method === "GET") return handleGetSettings(targetId, env);
+    if (method === "PUT") return handlePutSettings(targetId, request, env);
+  }
+
+  const publicResultMatch = pathname.match(/^\/public\/results\/([^/]+)$/);
+  if (publicResultMatch && method === "GET") {
+    return handleGetPublicResult(publicResultMatch[1], env);
   }
 
   const runMatch = pathname.match(/^\/runs\/([^/]+)(\/(complete|fail|writeback-recorded))?$/);

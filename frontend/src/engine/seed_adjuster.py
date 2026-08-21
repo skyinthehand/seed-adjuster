@@ -388,4 +388,12 @@ def get_adjusted_result(
             match_logs.append(["seed_position_based", opponent_player_name, ""] + least_match_result["match_log"])
             place(least_match_result["adjusted_index"])
 
+    # Mirrors seed_adjuster.ipynb cell 7's post-processing: annotate each output row with
+    # its new position, original position, and the Wave it landed in. `original_input_order`
+    # must already be set on each entry of `initial_data` (1-indexed) by the caller.
+    for i, row in enumerate(adjusted_data):
+        row["original_phaseseed"] = row.get("original_input_order")
+        row["phaseseed"] = i + 1
+        row["adjusted_wave"] = wave_ctx.get_wave(i)
+
     return {"adjusted_data": adjusted_data, "match_logs": match_logs, "wave_violations": wave_violations}

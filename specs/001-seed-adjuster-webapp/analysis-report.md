@@ -8,13 +8,15 @@
 
 **追加更新(同日、2回目)**: 「アルゴリズム改善はどうせ後でまた検証することになる」との指摘を受け、T024を一度きりのスパイクではなく再利用可能なベンチマークツールとして再定義し、T059として「このベンチマークをGitHub Actionsに組み込み、`frontend/src/engine/`または`frontend/src/data/`への変更のたびに自動で再検証する」タスクを新設した(Polishフェーズ)。これに伴いPolishフェーズの旧T059以降がさらに+1された。
 
-本レポートの表・タスクIDはこれらの更新後の状態に合わせて修正済み。G1・G3・U2・A1・A2・G4は未対応のまま recommendation として残す。
+**追加更新(2026-08-21、実装完了後)**: `/speckit-implement`実施の結果、G1(監査ログ用スプレッドシート指定・自動作成)はPhase 6(T044)で`frontend/src/pages/RunPage.tsx`に監査ログ用スプレッドシートID入力欄+自動作成チェックボックスを実装し、`frontend/src/integrations/googleSheets.ts`の`createSpreadsheet()`と組み合わせて解消済み。T060(quickstart全検証)も実施済み(ローカルAPI検証+実ブラウザ検証は運営者による手動実施が必要という制約付き、詳細はtasks.md T060参照)。
+
+本レポートの表・タスクIDはこれらの更新後の状態に合わせて修正済み。G3・U2・A1・A2・G4は未対応のまま recommendation として残す。
 
 ## Findings
 
 | ID | Category | Severity | Status | Location(s) | Summary | Recommendation |
 |----|----------|----------|--------|-------------|---------|----------------|
-| G1 | Coverage Gap | HIGH | Open | spec.md FR-012a/Clarifications; tasks.md T046 (Phase 6) | FR-012aは「監査ログ用スプレッドシートへの接続」と「システムによる専用スプレッドシートの自動作成」を要求するが、tasks.mdにはそのUI/選択/自動作成ロジックのタスクが存在しない。T046は428応答の**処理**のみで、`auditSpreadsheetId`を**設定する**手段がない。現状のタスクだけではUS4(Startgg経路)は428エラーから抜け出せない。 | Phase 6に「監査ログ用スプレッドシート指定・自動作成UI」(`frontend/src/pages/RunPage.tsx`)と「Google Sheets新規作成API呼び出し」(`frontend/src/integrations/googleSheets.ts`)のタスクを追加。 |
+| G1 | Coverage Gap | ~~HIGH~~ | **Resolved(実装済み)** | spec.md FR-012a/Clarifications; tasks.md T044/T046 (Phase 6) | FR-012aが要求する「監査ログ用スプレッドシートへの接続」「専用スプレッドシートの自動作成」のUIをT044で`frontend/src/pages/RunPage.tsx`に実装(指定欄+自動作成チェックボックス)、`createSpreadsheet()`(`frontend/src/integrations/googleSheets.ts`)と接続済み。T046の428ゲートと合わせてUS4(Startgg経路)は428エラーから正常に抜けられる。 | 対応不要。 |
 | G2 | Coverage Gap / Security | ~~HIGH~~ | **Resolved(削除)** | spec.md FR-012b/US3/Key Entities; data-model.md; contracts/api.md | hidden_value(非公開評価値)の概念自体をスコープから除去したため、除外実装タスクの欠落という問題そのものが解消した。spec.md/data-model.md/contracts/api.mdからhidden_value関連の記述を削除済み。 | 対応不要。将来hidden_valueが必要になった場合は、公開結果からの除外を含めて別途仕様化する(spec.md Assumptions参照)。 |
 | U1 | Underspecification | ~~MEDIUM-HIGH~~ | **Resolved(タスク追加・ゲート化・CI自動化)** | tasks.md T024/T025(Phase 2 Foundational)、T059(Phase 8 Polish) | Pyodide上でのアルゴリズム実行速度が未検証だった問題に対し、ベンチマークタスク(T024)と最適化タスク(T025)をFoundationalフェーズ末尾に追加し、「実測で60分予算を満たすまでPhase 3(US1)に進めない」ゲートとして明記した。さらに「アルゴリズム改善は今後も繰り返し検証が必要になる」という指摘を受け、T024を再利用可能なツールとして再定義し、T059でGitHub Actionsに組み込んで変更のたびに自動再検証する仕組みを追加した。実測結果そのものはまだ得られていないため、実装着手後の最優先事項として残る。 | T024/T025を最初に着手し、結果次第でresearch.md #1(実行場所の選択)の再検討が必要か判断する。T059は実装が落ち着いた段階(Polish)で対応。 |
 | G3 | Coverage Gap | MEDIUM | Open | spec.md SC-001; quickstart.md; tasks.md | SC-001(初回15分以内にセットアップ〜初回実行開始)を検証する手順が quickstart.md にも tasks.md にも存在しない。 | quickstart.mdに新規シナリオを追加し、T060(quickstart全検証)の対象に含める、または専用タスクを追加。 |
@@ -40,7 +42,7 @@
 | FR-010 | Yes | T042, T044 | |
 | FR-011 | Yes | T047, T048, T049 | |
 | FR-012 | Yes | T026, T028 | |
-| FR-012a | Partial | T046 | UI/自動作成が未タスク化(G1、未解決) |
+| FR-012a | Yes | T044, T046 | UI(T044)+428ゲート(T046)実装済み(G1解決) |
 | FR-012b | Yes | T036, T038 | hidden_value条項を削除、除外実装は不要になった(G2解決) |
 | FR-012c | Yes | T045 | |
 | FR-013 | Yes | T032, T033, T035 | |
@@ -77,15 +79,15 @@
 - Coverage %(≥1タスクが紐づく要件、Partial含む): 33/34 = 97%(SC-001のみ完全未カバー)
 - Ambiguity Count: 2
 - Duplication Count: 0
-- Critical Issues Count: 0(HIGHが1件: G1。G2は解決済み)
+- Critical Issues Count: 0(G1・G2ともに解決済み)
 
 ## Next Actions
 
-- **G1**は未解決のままHIGH。`/speckit-implement`でPhase 6(US4)に着手する前に解消を推奨(監査ログ用スプレッドシートの指定・自動作成UIタスクを追加)。
+- **G1は解決済み**(T044で監査ログ用スプレッドシートの指定・自動作成UIを実装)。
 - **G2は解決済み**(hidden_valueの仕組みを削除)。
-- **U1は解決済み**(T024/T025のベンチマーク/最適化ゲートに加え、T059でCI自動再検証を追加)。実際の実行はまだなので、実装ではT024/T025を最優先で着手すること。
-- G3・U2・A1・A2・G4はLOW〜MEDIUMのrecommendationとして残し、実装と並行して対応可能。
+- **U1は解決済み**(T024/T025のベンチマーク/最適化ゲートに加え、T059でCI自動再検証を追加。実測: n=2048で335秒、60分予算に対し余裕あり)。
+- 全61タスク(T001〜T061)は実装完了。G3・U2・A1・A2・G4はLOW〜MEDIUMのrecommendationとして残っており、対応するかは今後の判断に委ねる。
 
 ## Remediation Offer
 
-G1(監査ログ用スプレッドシート指定・自動作成)について、具体的な修正案(タスクの追記文言・挿入位置)の提示は未実施。希望があれば`tasks.md`への反映案を作成可能(実際の編集は別途承認後に実施)。
+G1は実装により解消済みのため対応不要。残るG3・U2・A1・A2・G4について具体的な修正案が必要であれば、別途`tasks.md`への反映案を作成可能。

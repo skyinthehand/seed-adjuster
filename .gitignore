@@ -20,6 +20,7 @@ node_modules/
 *.log
 npm-debug.log*
 .vite/
+*.tsbuildinfo
 
 # Cloudflare Workers (control-plane)
 .wrangler/
