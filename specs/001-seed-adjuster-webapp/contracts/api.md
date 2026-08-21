@@ -82,7 +82,7 @@ start.gg入力の場合、運営者が確認画面で書き戻しを承認し、
 ## 公開結果(認証不要)
 
 ### `GET /public/results/{runId}`
-`POST /runs/{runId}/complete`でブラウザが提出したサニタイズ済みコピーをそのまま返す(FR-012b)。非公開評価値(hidden_value)はそもそも提出データに含まれないため、除外の実装はブラウザ側(complete提出前)で完結している。
+`POST /runs/{runId}/complete`でブラウザが提出したコピーをそのまま返す(FR-012b)。
 - Response 200:
   ```json
   {

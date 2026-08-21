@@ -77,7 +77,6 @@ succeeded --(start.gg入力かつ運営者が承認・ブラウザが直接書�
 
 - `userId`: 対戦相手識別用のID
 - `displayName`: ゲーマータグ等の公開ハンドル
-- `hiddenValue`: 非公開評価値(結果表示ページでは非表示。FR-012b)
 - `discriminator`: Wave希望マッピング用の識別子(任意)
 - `desiredWaves`: 希望Wave一覧(任意)
 - `originalOrder`: 入力時点のシード順
@@ -90,7 +89,6 @@ succeeded --(start.gg入力かつ運営者が承認・ブラウザが直接書�
 
 - `runId`(AdjustmentRunへの参照)
 - `entries[]`: 各選手について `{ displayName, userId, adjustedPosition, originalPosition, adjustedWave }`
-- `hiddenValue`は含まない(公開用コピー作成時点でブラウザ側が除外する。FR-012b)
 
 **保存先**: (1) 監査ログ用スプレッドシートに新規シートとして、ブラウザが直接追記(FR-012)。Google Sheets入力の場合はさらに元のスプレッドシート内にも同内容が追記される(FR-009)。(2) 認証なしの公開結果APIから読めるよう、ブラウザが`POST /runs/{runId}/complete`でCloudflare D1へサニタイズ済みコピーを提出する(research.md #7)。
 
@@ -126,7 +124,7 @@ AdjustedSeedResultの各エントリについて、配置決定の判断根拠�
 start.gg入力時のみ生成。調整前(Startgg上で仮組みされていた時点)のシード順。ブラウザがstart.ggから読み込んだ内容から生成する。
 
 - `runId`
-- `entries[]`: `{ userId, displayName, originalPosition }` のみ(氏名等の個人情報・hiddenValueは含めない。FR-012c)
+- `entries[]`: `{ userId, displayName, originalPosition }` のみ(氏名等の個人情報は含めない。FR-012c)
 
 **保存先**: 監査ログ用スプレッドシート内の別シート(ブラウザが直接書き込む) + D1公開コピー。
 
