@@ -33,3 +33,4 @@
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
 - 3件の重要な曖昧点(公開範囲、Startgg連携の範囲、待機体験)はAskUserQuestionで事前に解消済み。回答はspec.mdの「Clarifications」セクションと該当する要件・ユーザーストーリーに反映済み。
+- 2026-08-21実施の`/speckit-clarify`セッションで、Startgg利用時の結果保存先、結果表示ページの公開閲覧範囲、大規模大会での60分超過時の挙動、同一大会への二重実行の扱いの4点を追加で明確化。FR-003a/FR-012a/FR-012b/FR-013aとして反映済み。
