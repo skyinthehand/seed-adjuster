@@ -1,29 +1,12 @@
 # API Contract: 制御プレーン(Cloudflare Workers)公開インターフェース
 
-フロントエンド(GitHub Pages上の静的SPA)がCloudflare Workers上の制御プレーンAPIを呼び出す際の契約。認証系エンドポイントを除き、`Authorization`ヘッダには `userSessionId` に対応するセッショントークンを付与する。`GET /public/*` 配下は認証不要(FR-012b)。`/internal/*` 配下はGitHub Actionsジョブ専用で、通常のセッショントークンではなくGitHub Actions OIDC IDトークンによる検証を要する(research.md #3)。
+フロントエンド(GitHub Pages上の静的SPA)がCloudflare Workers上の制御プレーンAPIを呼び出す際の契約。**重い計算(調整アルゴリズムの実行、Google Sheets/start.ggの読み書き)はすべてブラウザが直接行い、制御プレーンはそれらの認証情報を一切扱わない**(research.md #5, #6)。制御プレーンの役割は、複数の利用者・端末間で共有される状態(実行ロック・パラメータ設定・公開結果キャッシュ)の管理のみに限定される。
 
-各エンドポイントは `data-model.md` のエンティティを参照する。エラーレスポンスは共通形式 `{ "error": { "code": string, "message": string } }` を用いる。
+`GET /public/*` 配下は認証不要(FR-012b)。それ以外のエンドポイントは特別な認証を必要としない(制御プレーンが扱う情報に秘匿情報が含まれないため)が、`runId`のような推測困難な識別子で操作対象を特定する。エラーレスポンスは共通形式 `{ "error": { "code": string, "message": string } }` を用いる。
 
-## 認証・設定
+**注記**: 以前の設計にあった `/auth/google/*`(OAuth認可コード交換)、`/auth/startgg/token`(サーバー側トークン保存)、`/internal/*`(GitHub Actions OIDC検証による資格情報払い出し)は、認証がすべてブラウザ内で完結するようになったことに伴い廃止された(research.md #5, #6)。
 
-### `POST /auth/google/start`
-Google OAuth 認可コードフローを開始するための認可URLを発行する。
-- Response 200: `{ "authorizationUrl": string }`
-
-### `GET /auth/google/callback`
-Googleの認可コード交換を行い、リフレッシュトークンを`ConnectedAccount`に保存する(research.md #5)。
-- Query: `code`, `state`
-- Response 302: フロントエンドの設定ページへリダイレクト
-
-### `GET /auth/status`
-現在のセッションのGoogle/start.gg連携状態を返す。
-- Response 200: `{ "google": { "connected": boolean }, "startgg": { "connected": boolean } }`
-
-### `POST /auth/startgg/token`
-start.gg個人アクセストークンを登録する(research.md #6)。登録した値は暗号化してD1に保存し、以後どのAPIレスポンスにも生の値を含めない。
-- Request: `{ "accessToken": string }`
-- Response 200: `{ "connected": true }`(トークンの値自体は返さない)
-- Response 400: トークン検証失敗(start.gg APIへの疎通確認結果)
+## 設定
 
 ### `GET /settings/{targetId}`
 対象の現在の`AdjustmentSettings`(推奨既定値・上書き値)を取得する。
@@ -34,22 +17,51 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
 - Request: `{ "wizardAnswers": object, "overrides": object }`
 - Response 200: 更新後の`AdjustmentSettings`
 
-## 実行
+## 実行(ロック・進捗・結果提出)
+
+計算そのものはブラウザ内(Pyodide/DuckDB-WASM)で行われる。以下のエンドポイントは、複数利用者間での多重実行防止(FR-013a)と、認証なしで閲覧できる公開結果(FR-012b)を成立させるための状態管理に用いる。
 
 ### `POST /runs`
-シード自動調整の実行を開始する。`AdjustmentRun`を`queued`状態でD1に作成した上で、GitHub Actionsの`run-adjustment`ワークフローへ`repository_dispatch`(`client_payload: { runId }`)を送信して起動する(research.md #1)。トークン等の秘匿情報はこのペイロードに含めない。
+シード自動調整の実行意図を登録し、対象への排他ロックを取得する。ブラウザは、このレスポンスで`runId`を受け取った後にローカルでの計算を開始する。
 - Request:
   ```json
   {
+    "targetId": "string",
     "inputSource": "google_sheets" | "startgg",
     "sourceReference": { "spreadsheetId": "...", "worksheetName": "..." } | { "eventId": "...", "phaseId": "..." },
-    "auditSpreadsheetId": "string | null"
+    "auditSpreadsheetId": "string | null",
+    "settingsSnapshot": object,
+    "estimatedDurationSeconds": number,
+    "entrantCount": number
   }
   ```
 - Response 202: `{ "runId": string, "status": "queued", "sizeWarning": { "reason": "string", "estimatedDurationSeconds": number, "entrantCount": number } | null }`。事前見積もり上60分を大幅に超える場合でも実行は拒否せず、`sizeWarning`に警告情報を添えて202を返す(FR-003a)。
-- Response 409: 同一`targetId`に対して実行中のRunが既に存在する(FR-013a)。`{ "error": { "code": "RUN_IN_PROGRESS", "message": "...", "existingRunId": string } }`
+- Response 409: 同一`targetId`に対して実行中(ハートビート有効期限内)のRunが既に存在する(FR-013a)。`{ "error": { "code": "RUN_IN_PROGRESS", "message": "...", "existingRunId": string } }`
 - Response 428: 監査ログ用スプレッドシート未接続(start.gg入力時、FR-012a)。`{ "error": { "code": "AUDIT_SPREADSHEET_REQUIRED", "message": "..." } }`
-- Response 403: 対象への書き込み権限不足(FR-021)
+
+### `POST /runs/{runId}/heartbeat`
+クライアントが計算中、一定間隔で呼び出す(research.md #4)。`status`を`running`に確定させ、`lastHeartbeatAt`を更新する。
+- Response 200: `{ "runId": string, "status": "running" }`
+- Response 404/410: 当該`runId`が既にハートビート途絶により`failed`とされた場合
+
+### `POST /runs/{runId}/complete`
+計算完了後、ブラウザが公開結果のサニタイズ済みコピー(非公開評価値を含まない)を提出する(research.md #8)。`status`を`succeeded`にする。
+- Request:
+  ```json
+  {
+    "adjustedEntries": [ { "displayName": "string", "adjustedPosition": 1, "originalPosition": 5, "adjustedWave": "string | null" } ],
+    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0 } ], "decisionLogicType": "string" } ],
+    "waveConstraintViolations": [ { "position": 3, "playerDisplayName": "string", "wave": "string", "allowedWaves": ["string"] } ],
+    "preAdjustmentSnapshot": [ { "displayName": "string", "originalPosition": 1 } ] 
+  }
+  ```
+  `preAdjustmentSnapshot`は`inputSource = "startgg"`の場合のみ含む(FR-012c)。
+- Response 200: `{ "runId": string, "status": "succeeded" }`
+
+### `POST /runs/{runId}/fail`
+計算がブラウザ側で失敗した場合に報告する。
+- Request: `{ "failureHint": "string" }`
+- Response 200: `{ "runId": string, "status": "failed" }`
 
 ### `GET /runs/{runId}`
 実行状況を取得する(運営者向け。ポーリングによりFR-014の状態表示を実現)。
@@ -68,29 +80,15 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   }
   ```
 
-### `POST /runs/{runId}/writeback/approve`
-start.gg入力の実行結果をStartggへ書き戻すことを承認し、反映を実行する(FR-011)。Google Sheets入力の場合は404。
+### `POST /runs/{runId}/writeback-recorded`
+start.gg入力の場合、運営者が確認画面で書き戻しを承認し、**ブラウザが直接start.gg APIへ書き戻しを実行した後**、その完了を記録するために呼び出す(FR-011)。制御プレーン自身はstart.ggへの書き込みを行わない。
 - Response 200: `{ "runId": string, "writebackApproved": true }`
-- Response 409: 対象Runがまだ`succeeded`でない、または既に承認済み
-- Response 403: start.ggアカウントが対象イベントの運営権限を持たない(FR-021)
-
-## 内部(GitHub Actionsジョブ専用、OIDC検証)
-
-### `POST /internal/runs/{runId}/credentials`
-`compute`ジョブが実行開始直後に呼び出し、Google/start.ggの復号済みトークンおよび入力元・監査ログ保存先の参照情報を取得する。GitHub Actions OIDC IDトークンを`Authorization: Bearer`で送付する必要があり、Workerは署名・発行者(`https://token.actions.githubusercontent.com`)・`repository`クレイム(本リポジトリと完全一致)を検証する(research.md #3)。復号済みの値をこのレスポンスとして返すのは、OIDC検証済みの`compute`ジョブに対する一度きりの払い出しのみであり、他のいかなるエンドポイント(`/auth/*`, `GET /runs/*`等)もトークンの値を返さない(research.md #5, #6)。
-- Response 200: `{ "googleAccessToken": string, "startggAccessToken": string | null, "sourceReference": object, "auditSpreadsheetId": string, "settingsSnapshot": object }`
-- Response 401: OIDC検証失敗
-- Response 409: 当該`runId`の資格情報が既に払い出し済み(一度きりの払い出し。research.md #3)
-
-### `POST /internal/runs/{runId}/status`
-`compute`ジョブが実行状況を報告する(`running`確定、`succeeded`/`failed`終了、`failureHint`等)。`/internal/runs/{runId}/credentials`と同様にOIDC検証を要する。
-- Request: `{ "status": "running" | "succeeded" | "failed", "failureHint": "string | null" }`
-- Response 200: `{ "runId": string, "status": "string" }`
+- Response 409: 対象Runがまだ`succeeded`でない、または既に記録済み
 
 ## 公開結果(認証不要)
 
 ### `GET /public/results/{runId}`
-調整結果を、非公開評価値(hidden_value)を除外して返す(FR-012b)。
+`POST /runs/{runId}/complete`でブラウザが提出したサニタイズ済みコピーをそのまま返す(FR-012b)。非公開評価値(hidden_value)はそもそも提出データに含まれないため、除外の実装はブラウザ側(complete提出前)で完結している。
 - Response 200:
   ```json
   {
@@ -98,18 +96,10 @@ start.gg入力の実行結果をStartggへ書き戻すことを承認し、反�
     "targetId": "string",
     "inputSource": "google_sheets" | "startgg",
     "finishedAt": "ISO8601",
-    "adjustedEntries": [
-      { "displayName": "string", "adjustedPosition": 1, "originalPosition": 5, "adjustedWave": "string | null" }
-    ],
-    "decisionLog": [
-      { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0 } ], "decisionLogicType": "string" }
-    ],
-    "waveConstraintViolations": [
-      { "position": 3, "playerDisplayName": "string", "wave": "string", "allowedWaves": ["string"] }
-    ],
-    "preAdjustmentSnapshot": [
-      { "displayName": "string", "originalPosition": 1 }
-    ]
+    "adjustedEntries": [ { "displayName": "string", "adjustedPosition": 1, "originalPosition": 5, "adjustedWave": "string | null" } ],
+    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0 } ], "decisionLogicType": "string" } ],
+    "waveConstraintViolations": [ { "position": 3, "playerDisplayName": "string", "wave": "string", "allowedWaves": ["string"] } ],
+    "preAdjustmentSnapshot": [ { "displayName": "string", "originalPosition": 1 } ]
   }
   ```
   `preAdjustmentSnapshot` は `inputSource = "startgg"` の場合のみ含まれる(FR-012c)。
@@ -118,3 +108,12 @@ start.gg入力の実行結果をStartggへ書き戻すことを承認し、反�
 ### `GET /public/runs?targetId={targetId}`
 同一対象に対する過去の実行一覧を返す(FR-016)。
 - Response 200: `{ "runs": [ { "runId": string, "finishedAt": "ISO8601", "inputSource": "string" } ] }`(新しい順)
+
+## start.gg CORSリレー(条件付き、research.md #7)
+
+start.gg APIがブラウザからの直接呼び出し(CORS)を許可しない場合にのみ用いる。実装前に検証し、不要と判明すればこのエンドポイントは実装しない。
+
+### `POST /relay/startgg`
+リクエストボディとAuthorizationヘッダをそのまま start.gg のGraphQLエンドポイントへ転送し、レスポンスをそのまま返す。リクエスト内容・トークンはログに一切記録しない。
+- Request: start.gg GraphQL APIへのリクエストとそのまま同じ形(`{ "query": "...", "variables": {...} }`)、`Authorization: Bearer <利用者のstart.ggトークン>`
+- Response: start.gg APIのレスポンスをそのまま透過

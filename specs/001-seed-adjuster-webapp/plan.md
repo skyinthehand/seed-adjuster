@@ -6,27 +6,27 @@
 
 ## Summary
 
-現在Colabノートブック(`seed_adjuster.ipynb`)で個人運用している「対戦履歴に基づくシード自動調整」ロジックを、誰でも自分のGoogleアカウント(・任意でStartggアカウント)を接続するだけでセルフサービスに使える公開Webツールとして提供する。フロントエンドはGitHub Pagesでホストする静的SPAとし、シード調整の実行(最大60分・タブを閉じても継続)、smash_databaseの全件読み込みを避けるための事前構築済み対戦履歴インデックス、GoogleスプレッドシートまたはStartggからの入力、Googleスプレッドシートへの監査ログ出力、認証不要で誰でも閲覧できる結果表示ページを、**支払い手段の登録が一切不要で、無料枠を超えても課金ではなく機能停止(fail-closed)にしかならない**構成(GitHub Actions + Cloudflare Workers/D1)で実現する(research.md #0参照)。
+現在Colabノートブック(`seed_adjuster.ipynb`)で個人運用している「対戦履歴に基づくシード自動調整」ロジックを、誰でも自分のGoogleアカウント(・任意でStartggアカウント)を接続するだけでセルフサービスに使える公開Webツールとして提供する。**重い計算(smash_databaseの参照・シード調整アルゴリズム)はサーバーを介さず、ブラウザ内で完結させる**(DuckDB-WASM + Pyodideによるクライアントサイド実行。research.md #1参照)。フロントエンドはGitHub Pagesでホストする静的SPA、状態管理・多重実行ロック・公開結果の保管には最小限のCloudflare Workers/D1のみを用いる。この結果、**支払い手段の登録が一切不要で、無料枠を超えても課金ではなく機能停止(fail-closed)にしかならない**うえ、重い計算自体がそもそも運営者自身の端末で行われるため課金対象のサーバー計算資源を一切使わない構成となる(research.md #0参照)。「実行中にタブを閉じても処理が継続する」ことは希望要件にとどめ、必須要件としない(spec.md Clarifications参照)。
 
 ## Technical Context
 
-**Language/Version**: 制御プレーン(Cloudflare Workers): TypeScript 5。計算本体(GitHub Actionsジョブ): Python 3.12。インデクサー(GitHub Actions定期実行): Python 3.12。フロントエンド: TypeScript 5 / Node 20 (Vite ビルドで静的出力)。
+**Language/Version**: フロントエンド: TypeScript 5 / Node 20 (Vite ビルドで静的出力)。調整アルゴリズム本体: 既存のPython実装(`seed_adjuster.ipynb`由来)をそのままPyodide(ブラウザ内WASM Python)で実行。制御プレーン(Cloudflare Workers): TypeScript 5。インデクサー(GitHub Actions定期実行、smash_database集約専用・ユーザー認証情報を扱わない): Python 3.12。
 
-**Primary Dependencies**: 制御プレーン: Cloudflare Workers標準API、D1(SQLite)、`jose`等のJWT検証ライブラリ(GitHub Actions OIDCトークン検証用)。計算本体/インデクサー: gspread + google-auth-oauthlib(Google Sheets読み書き・OAuthトークン交換)、httpx(start.gg GraphQL呼び出し)、cryptography(トークン暗号化/復号)。フロントエンド: React 18、Vite、Google Identity Services JS SDK(サインインUI)。
+**Primary Dependencies**: フロントエンド: React 18、Vite、Google Identity Services JS SDK(ブラウザ完結のOAuthトークン取得)、Pyodide(調整アルゴリズムの実行)、DuckDB-WASM(対戦履歴インデックスに対するSQLクエリ)。調整アルゴリズム(Pyodide経由で動く既存Pythonコード)からのGoogle Sheets / start.gg 呼び出しは、ブラウザから直接fetchする(取得したアクセストークン・利用者入力のstart.ggトークンをそのまま使用)。制御プレーン: Cloudflare Workers標準API、D1(SQLite)。インデクサー: 既存ノートブックの対戦履歴集計ロジックを流用したPythonスクリプト。
 
-**Storage**: Cloudflare D1(無料プラン、カード登録不要) — 実行状態(AdjustmentRun)、対象ごとの多重実行防止ロック、暗号化したGoogle/Startgg連携トークン(ConnectedAccount)、調整パラメータ設定(AdjustmentSettings)を保持。Google スプレッドシート — 各運営者が接続した監査ログ用シート(調整結果・判断根拠ログ・Wave制約違反記録・調整前シード記録)。事前構築済み対戦履歴インデックス — smash_databaseから定期生成する、選手ペア単位の対戦タイムスタンプ一覧に絞った小容量の静的アーティファクト(GitHub Releasesアセットとして配布。生リポジトリ全体は実行時に読み込まない)。
+**Storage**: ブラウザのローカルストレージ(IndexedDB) — start.gg個人アクセストークン(利用者の端末内にのみ保存し、いかなるサーバーにも保存しない。research.md #6)。Cloudflare D1(無料プラン、カード登録不要) — 実行状態(AdjustmentRun、ハートビートによる生存確認付き)、対象ごとの多重実行防止ロック、調整パラメータ設定(AdjustmentSettings)、クライアントが実行完了後に提出する公開結果のサニタイズ済みコピー(AdjustedSeedResult等)を保持。ユーザーの認証トークンはD1には一切保存しない。Google スプレッドシート — 各運営者が接続した監査ログ用シート(調整結果・判断根拠ログ・Wave制約違反記録・調整前シード記録。ブラウザから直接書き込む)。事前構築済み対戦履歴インデックス — smash_databaseから定期生成する、選手ペア単位の対戦タイムスタンプ一覧に絞った小容量の静的アーティファクト(DuckDB-WASMで読み込みやすいParquet形式。GitHub Releasesアセットとして配布)。
 
-**Testing**: 制御プレーン: vitest(unit・contract。Cloudflare Workers用のテストランナー`@cloudflare/vitest-pool-workers`を使用)。計算本体/インデクサー: pytest(unit・contract・Sheets/Startgg APIのフェイクを用いたintegration)。フロントエンド: vitest + Testing Library。
+**Testing**: フロントエンド(調整アルゴリズムの呼び出し・DuckDB-WASMクエリ・OAuthフローを含む): vitest + Testing Library、Pyodide経由で動くPythonロジック自体の単体テストはpytest(ブラウザ外で通常のPythonとして実行して検証)。制御プレーン: vitest(unit・contract。`@cloudflare/vitest-pool-workers`を使用)。インデクサー: pytest。
 
-**Target Platform**: フロントエンド: GitHub Pages上の静的サイト(モダンブラウザ)。制御プレーン(トリガー・状態管理・公開API): Cloudflare Workers(Freeプラン)。計算本体(最大60分の調整計算): GitHub Actions ワークフロー(`repository_dispatch`起動、公開リポジトリのため無料)。インデクサー: GitHub Actionsの定期実行ワークフロー(公開リポジトリのため無料)。Google Cloudは Google OAuth クライアント登録のためだけに使用し、課金は有効化しない。
+**Target Platform**: フロントエンド: GitHub Pages上の静的サイト(モダンブラウザ。調整計算はここで完結)。制御プレーン(ロック・状態管理・公開結果キャッシュ): Cloudflare Workers(Freeプラン)。インデクサー: GitHub Actionsの定期実行ワークフロー(公開リポジトリのため無料、ユーザー認証情報は扱わない)。Google Cloudは Google OAuth クライアント登録のためだけに使用し、課金は有効化しない。
 
-**Project Type**: web(frontend + 制御プレーン)。加えて、重い計算を担うGitHub Actionsジョブと、smash_databaseを定期的に軽量インデックスへ変換するスケジュール実行コンポーネント(indexer)を持つ構成。
+**Project Type**: web(frontend + 最小限の制御プレーン)。重い計算はサーバー側コンポーネントを持たず、フロントエンド内で完結する。smash_databaseを定期的に軽量インデックスへ変換するスケジュール実行コンポーネント(indexer)のみ、GitHub Actions上に独立して存在する。
 
-**Performance Goals**: 現実的な規模(数百人規模)の大会であればシード自動調整がデータ取得から結果出力まで常に60分以内に完了する(SC-002)。公開結果ページは完了済みの実行結果を数秒以内に表示する。
+**Performance Goals**: 現実的な規模(数百人規模)の大会であれば、運営者の一般的なノートPC等のブラウザ上でシード自動調整がデータ取得から結果出力まで常に60分以内に完了する(SC-002)。公開結果ページは完了済みの実行結果を数秒以内に表示する。
 
-**Constraints**: 1回の実行が扱う対戦履歴データはジョブ実行環境のメモリに収まる小容量インデックスに限定する(FR-002)。60分制約を満たす主手段は参加者数上限による拒否ではなく処理自体の最適化とする(FR-003)。参加者数を理由に実行そのものを拒否してはならない。想定処理時間が60分を大幅に超える場合は事前警告のみを行い、運営者はそのまま実行を続行できる(FR-003a)。**アーキテクチャを構成するいかなるコンポーネントについても、運用担当者は支払い手段を登録しない。無料枠超過時の挙動は課金ではなく機能の一時的な利用不可でなければならない**(SC-005、research.md #0)。バックグラウンド実行はブラウザタブを閉じても継続する(FR-013)。同一入力対象への同時実行は禁止する(FR-013a)。結果表示ページは非公開評価値(hidden_value)を除外した上で認証なしに閲覧できる(FR-012b)。公開リポジトリのActionsログは誰でも閲覧できるため、利用者のGoogle/Startggトークンをワークフロー入力やログに一切出力してはならない(research.md #3)。Startggへの書き戻しは運営者の明示的承認後にのみ行う(FR-011)。
+**Constraints**: 1回の実行が扱う対戦履歴データはブラウザのメモリに収まる小容量インデックスに限定する(FR-002)。60分制約を満たす主手段は参加者数上限による拒否ではなく処理自体の最適化とする(FR-003)。参加者数を理由に実行そのものを拒否してはならない。想定処理時間が60分を大幅に超える場合は事前警告のみを行い、運営者はそのまま実行を続行できる(FR-003a)。**アーキテクチャを構成するいかなるコンポーネントについても、運用担当者は支払い手段を登録しない。無料枠超過時の挙動は課金ではなく機能の一時的な利用不可でなければならない**(SC-005、research.md #0)。実行中にブラウザタブを閉じても処理が継続することは希望要件であり必須ではない(FR-013)。同一入力対象への同時実行は禁止する(FR-013a。クライアント側の実行が完了報告なしに停止した場合に備え、ハートビートに基づくロックの自動失効を設ける)。結果表示ページは非公開評価値(hidden_value)を除外した上で認証なしに閲覧できる(FR-012b)。start.ggトークンはブラウザの外(サーバー)へ送信・保存してはならない(research.md #6)。start.gg APIが呼び出し元オリジンからのブラウザ直接呼び出し(CORS)に対応していない場合、資格情報を保持・ログ保存しない薄いリレーで中継する必要があり、これは未検証のリスクとして扱う(research.md #7)。Startggへの書き戻しは運営者の明示的承認後にのみ行う(FR-011)。
 
-**Scale/Scope**: 完全公開のセルフサービス型・複数テナント(利用者ごとに個別のGoogle/Startggアカウントとスプレッドシートを持つ)。全体の想定利用量は月あたり数大会程度(SC-005)。個々の大会は現実的には数百人規模までを主対象とするが、それを大幅に超える規模も拒否せず、警告表示の上で実行できる(FR-003a, SC-002a)。ただしGitHub Actionsのジョブタイムアウト・同時実行数には実用上の技術的上限がある(research.md #1, #8)。
+**Scale/Scope**: 完全公開のセルフサービス型・複数テナント(利用者ごとに個別のGoogle/Startggアカウントとスプレッドシートを持つ)。全体の想定利用量は月あたり数大会程度(SC-005)。個々の大会は現実的には数百人規模までを主対象とするが、それを大幅に超える規模も拒否せず、警告表示の上で実行できる(FR-003a, SC-002a)。計算が各利用者自身のブラウザで行われるため、共有インフラの同時実行数を巡る利用者間の競合は生じない。
 
 ## Constitution Check
 
@@ -55,47 +55,40 @@ specs/001-seed-adjuster-webapp/
 ### Source Code (repository root)
 
 ```text
-frontend/                      # GitHub Pagesにデプロイする静的SPA
+frontend/                      # GitHub Pagesにデプロイする静的SPA(重い計算もここで完結)
 ├── src/
 │   ├── pages/                 # 設定ページ / 実行ページ(入力元選択) / 結果表示ページ
 │   ├── components/
-│   └── services/               # 制御プレーンREST APIクライアント
+│   ├── engine/                 # 調整アルゴリズム(seed_adjuster.ipynb由来のPythonをPyodideで実行するためのラッパー)
+│   │   └── seed_adjuster.py     # 既存ロジックを移植したPython本体(Pyodideにロードして実行)
+│   ├── data/
+│   │   ├── matchIndex.ts        # DuckDB-WASMで対戦履歴インデックス(Parquet)をクエリするモジュール
+│   │   └── indexer/              # (indexer/ の出力形式契約への参照。実体は別コンポーネント)
+│   ├── integrations/
+│   │   ├── googleSheets.ts      # ブラウザから直接Google Sheets APIを呼び出す(アクセストークンはセッション内メモリのみ)
+│   │   └── startgg.ts           # ブラウザから直接start.gg GraphQL APIを呼び出す(トークンはIndexedDBのみに保存)
+│   └── services/                # 制御プレーンREST APIクライアント(ロック・ハートビート・公開結果提出)
 └── tests/
 
-control-plane/                  # Cloudflare Workers上で動作するAPI(トリガー/状態/公開結果)
+control-plane/                  # Cloudflare Workers上で動作する最小限のAPI(ロック/状態/公開結果キャッシュ)
 ├── src/
-│   ├── api/                   # HTTPエンドポイント(認証コールバック/設定/実行トリガー/公開結果)
-│   ├── oidc/                    # GitHub Actions OIDCトークン検証(research.md #3)
+│   ├── api/                   # HTTPエンドポイント(設定/実行ロック・ハートビート/公開結果提出・閲覧/任意のstart.ggリレー)
 │   └── db/                      # D1スキーマ・アクセス層
 └── tests/
     ├── contract/                # contracts/ に対する契約テスト
     ├── integration/
     └── unit/
 
-compute/                         # GitHub Actionsジョブとして実行する調整計算本体
-├── src/
-│   ├── engine/                 # シード自動調整アルゴリズム(seed_adjuster.ipynbから移植)
-│   └── integrations/
-│       ├── google_sheets.py    # シード表の読み込み・監査ログ出力・専用シート自動作成
-│       ├── startgg.py          # start.gg GraphQL 読み込み・書き戻し
-│       ├── match_index.py      # 事前構築済み対戦履歴インデックスの取得・参照
-│       └── control_plane_client.py  # OIDC付きでcontrol-planeから資格情報取得・状態報告
-└── tests/
-    ├── contract/
-    ├── integration/
-    └── unit/
-
-indexer/                         # smash_databaseから対戦履歴インデックスを定期生成
+indexer/                         # smash_databaseから対戦履歴インデックスを定期生成(ユーザー認証情報は扱わない)
 ├── src/
 └── tests/
 
 .github/
 └── workflows/
-    ├── run-adjustment.yml      # repository_dispatchで起動、compute/を実行(最大60分)
-    └── indexer.yml             # 定期実行、indexer/を実行
+    └── indexer.yml             # 定期実行、indexer/を実行してParquetアーティファクトを公開
 ```
 
-**Structure Decision**: Web application構成に、GitHub Actions上で動く2つの独立コンポーネント(`compute`: 都度の調整計算、`indexer`: smash_databaseの定期集約)を加えた4構成とする。`backend`という単一のオンデマンドAPIサーバーを置く代わりに、軽量で常時無料な`control-plane`(Cloudflare Workers、リクエスト応答のみ)と、重い処理を担う`compute`(GitHub Actionsジョブ、実行のたびに起動)を分離しているのは、両者の課金モデル・実行環境・実行頻度が本質的に異なり(research.md #0〜#2)、これを1コンポーネントに同居させると「常時無料なトリガー層」と「実行のたびに走る計算層」の区別が実装上も曖昧になり、コスト面の安全性(0番の大原則)を保証しづらくなるためである。`indexer`も同様の理由で`compute`とは別ワークフロー・別スケジュールで分離する。プロジェクト憲章に複雑さを制限する原則が定義されていないため、Complexity Trackingとしての正式な justification は不要と判断した。
+**Structure Decision**: Web application構成のうち、重い計算(調整アルゴリズム・対戦履歴クエリ)を担うサーバー側コンポーネントを廃し、`frontend`内で完結させる(research.md #1)。これに伴い、以前案にあった`compute`(GitHub Actionsジョブ)と、GitHub Actions OIDCトークンの検証によるcompute向け資格情報払い出し機構は不要になった。`control-plane`(Cloudflare Workers)は、複数の利用者・端末間で共有されるべき状態(同一対象への多重実行ロック、対象ごとのパラメータ設定、認証なしで公開する結果のキャッシュ)のみを扱う薄い層として残す。これらはブラウザ単体では実現できない「複数の利用者間で共有される状態」だからであり、それ以外(重い計算・認証情報の保持)はすべてブラウザ側に閉じる。`indexer`はsmash_databaseの定期集約という関心事がフロントエンド・制御プレーンいずれとも異なり、かつユーザー認証情報を一切扱わない無人バッチであるため、引き続き独立したGitHub Actionsコンポーネントとして分離する。プロジェクト憲章に複雑さを制限する原則が定義されていないため、Complexity Trackingとしての正式な justification は不要と判断した。
 
 ## Complexity Tracking
 

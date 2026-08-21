@@ -1,42 +1,40 @@
 # Data Model: 対戦相手シード調整ツールの公開Web化
 
-spec.md の Key Entities を、research.md で決定した保管先(Cloudflare D1 / Google スプレッドシート / 静的インデックス)に対応付けて具体化する。フィールド名は実装時の最終命名を拘束しない設計レベルの記述。
+spec.md の Key Entities を、research.md で決定した保管先(ブラウザローカル / Cloudflare D1 / Google スプレッドシート / 静的インデックス)に対応付けて具体化する。フィールド名は実装時の最終命名を拘束しない設計レベルの記述。
+
+**方針転換の要点**: 重い計算(調整アルゴリズム・対戦履歴クエリ)がブラウザ内で完結するようになったこと(research.md #1)に伴い、利用者の認証トークンはサーバー側に一切保存しない設計へ変更した。`ConnectedAccount`はサーバー(Cloudflare D1)のエンティティではなく、ブラウザローカルの状態として扱う。
 
 ## 保管先の全体像
 
 | エンティティ | 保管先 | 備考 |
 |---|---|---|
-| ConnectedAccount | Cloudflare D1(control-plane) | 認証トークンは暗号化して保存。無料プラン・カード登録不要(research.md #0, #2) |
-| AdjustmentSettings | Cloudflare D1(control-plane) | 対象(大会)単位で保持 |
-| AdjustmentRun | Cloudflare D1(control-plane) | 実行状態・ロックを兼ねる |
-| SeedEntry | 実行時にGoogleスプレッドシート/start.ggから読み込む(永続保管はしない) | |
-| AdjustedSeedResult | Googleスプレッドシート(監査ログ用) + D1(実行への参照) | 公開結果APIの読み出し元 |
-| DecisionLog | Googleスプレッドシート(監査ログ用) | 既存ノートブックのmatch_log相当 |
-| WaveConstraintViolation | Googleスプレッドシート(監査ログ用) | |
-| PreAdjustmentSeedSnapshot | Googleスプレッドシート(監査ログ用、別シート) | start.gg入力時のみ生成。個人情報を含まない |
-| MatchHistoryIndex | 静的アーティファクト(indexerが生成・GitHub Releasesで公開) | 実行のたびにcomputeジョブが読み込む圧縮対戦履歴 |
+| ConnectedAccount | ブラウザローカル(IndexedDB / メモリ) | サーバーには一切送信・保存しない(research.md #5, #6) |
+| AdjustmentSettings | Cloudflare D1(control-plane) | 対象(大会)単位で保持。秘匿情報を含まない共有状態 |
+| AdjustmentRun | Cloudflare D1(control-plane) | 実行状態・ロックを兼ねる。ハートビートによる生存確認あり |
+| SeedEntry | 実行時にGoogleスプレッドシート/start.ggからブラウザが直接読み込む(永続保管はしない) | |
+| AdjustedSeedResult | Googleスプレッドシート(監査ログ用、ブラウザが直接書き込む) + D1(ブラウザが提出する公開用サニタイズ済みコピー) | 公開結果APIの読み出し元はD1側 |
+| DecisionLog | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | 既存ノートブックのmatch_log相当 |
+| WaveConstraintViolation | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | |
+| PreAdjustmentSeedSnapshot | Googleスプレッドシート(監査ログ用、別シート) + D1(公開用コピー) | start.gg入力時のみ生成。個人情報を含まない |
+| MatchHistoryIndex | 静的アーティファクト(indexerが生成・GitHub Releasesで公開、Parquet形式) | 実行のたびにブラウザ(DuckDB-WASM)が直接取得して読み込む圧縮対戦履歴 |
 
 ---
 
-## ConnectedAccount
+## ConnectedAccount(ブラウザローカル)
 
-利用者ごとのGoogle/start.gg連携状態。
+利用者ごとのGoogle/start.gg連携状態。**このエンティティはいかなるサーバーにも存在せず、利用者自身のブラウザ内にのみ存在する。**
 
-- `userSessionId`: このツールにおける利用者を識別するID(ブラウザセッション/簡易アカウントの識別子)
-- `googleRefreshTokenEncrypted`: Google OAuthのリフレッシュトークン(暗号化)。未連携時はnull
+- `googleAccessToken`: Google Identity Servicesのトークンクライアントから取得した短命なアクセストークン。ブラウザのメモリ内(実行中のセッションの間)にのみ保持し、永続化しない(research.md #5)
 - `googleGrantedScopes`: 付与されたOAuthスコープ一覧(Sheets読み書き・専用スプレッドシート作成用のDrive file scope等)
-- `startggAccessTokenEncrypted`: start.gg個人アクセストークン(利用者が設定ページに入力した値をそのまま暗号化して保存。研究上の暫定対応ではなく採用方式として確定。research.md #6)。未連携時はnull
-- `connectedAt` / `lastUsedAt`
+- `startggAccessToken`: 利用者が設定ページに入力したstart.gg個人アクセストークン。ブラウザのIndexedDBに保存し、次回訪問時も再入力を省略できるようにする(research.md #6)
 
-**バリデーション**: 書き込み系操作(実行開始・設定変更・Startgg書き戻し)は、リクエスト元の`userSessionId`に紐づくConnectedAccountの認可範囲内でのみ許可する(FR-020)。
-
-**漏洩防止(research.md #5, #6)**: `googleRefreshTokenEncrypted` / `startggAccessTokenEncrypted` の暗号鍵はD1には保存せず、Cloudflare Workersのシークレットとして別管理する。いずれの値も、登録後にAPIレスポンスへ含めて返してはならない(`GET /auth/status`は真偽値のみを返す)。ログ(Cloudflare Workers・GitHub Actions双方)にも出力してはならない。
+**バリデーション**: 書き込み系操作(実行開始・設定変更・Startgg書き戻し)は、ブラウザが保持するこのトークンの権限範囲内でのみ行われる(FR-020)。サーバー側はこれらのトークンを一切検証・保管しないため、認可はGoogle/start.gg自身のAPIが行う。
 
 ---
 
-## AdjustmentSettings
+## AdjustmentSettings(Cloudflare D1)
 
-調整ロジックのパラメータ。対象(大会=入力元スプレッドシート or start.ggイベント)単位で保持し、Yes/No回答由来の既定値と個別上書き値を区別する。
+調整ロジックのパラメータ。対象(大会=入力元スプレッドシート or start.ggイベント)単位で保持し、Yes/No回答由来の既定値と個別上書き値を区別する。秘匿情報を含まないため、サーバー(D1)に保存して複数端末・複数運営者間で共有してよい。
 
 - `targetId`: 対象の識別子(入力元スプレッドシートIDまたはstart.ggイベント/フェーズID)
 - `wizardAnswers`: Yes/No質問への回答一覧(例: 「大会規模は小規模か」「対戦履歴の参照期間を短くするか」等)
@@ -46,38 +44,39 @@ spec.md の Key Entities を、research.md で決定した保管先(Cloudflare D
 
 ---
 
-## AdjustmentRun
+## AdjustmentRun(Cloudflare D1)
 
-シード自動調整1回分の実行。実行状態の管理と、対象ごとの多重実行ロック(FR-013a)を兼ねる。
+シード自動調整1回分の実行。実行状態の管理と、対象ごとの多重実行ロック(FR-013a)を兼ねる。**計算そのものはブラウザ内で行われ、Workerはその開始・進捗・完了をブラウザからの報告として記録するのみ。**
 
 - `runId`: 一意識別子(公開結果ページのURLにも使用)
 - `targetId`: 対象の識別子(AdjustmentSettingsと同じ単位)
 - `inputSource`: `google_sheets` | `startgg`
-- `sourceReference`: 入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID
+- `sourceReference`: 入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID(トークンなど秘匿情報は含まない)
 - `auditSpreadsheetId`: 監査ログ保存先スプレッドシートID(FR-012a。未設定の場合、start.gg入力では実行不可)
 - `settingsSnapshot`: 実行時点で確定した`AdjustmentSettings.effectiveValue`一式のスナップショット(後から「なぜその調整になったか」を追える形で保存)
 - `status`: `queued` → `running` → (`succeeded` | `failed`)。参加者数を理由にした拒否状態は持たない(FR-003a)
 - `startedAt` / `finishedAt`
-- `failureHint`: 失敗時の原因の手がかり(FR-014)。GitHub Actionsのジョブタイムアウト到達による失敗もここに含まれうる(research.md #8)
+- `lastHeartbeatAt`: クライアントが`running`中に定期送信するハートビートの最終受信時刻(research.md #4)
+- `failureHint`: 失敗時の原因の手がかり(FR-014)。ハートビート途絶による自動失効の場合は「タブが閉じられたか、通信が途切れた可能性があります」等を記録する(research.md #4)
 - `estimatedDurationSeconds` / `entrantCount`: FR-003aの事前見積もりに使用した値
 - `sizeWarning`: `{ shown: boolean, reason: string, estimatedDurationSeconds: number, entrantCount: number } | null`。事前見積もりが60分を大幅に超える場合に設定され、運営者向け・結果表示ページ向けの警告表示に使う。設定されていても実行は`queued`のまま進行する(拒否しない)
-- `writebackApproved`: start.gg入力の場合のみ。運営者が書き戻しを承認したかどうか(FR-011)。承認されるまでStartgg側は変更しない
+- `writebackApproved`: start.gg入力の場合のみ。運営者が書き戻しを承認したかどうか(FR-011)。承認されるまでStartgg側は変更しない。書き戻し自体もブラウザから直接start.gg APIへ行われ、Workerへはその実行結果が事後報告されるのみ
 
 **状態遷移**:
 
 ```text
-queued --(ジョブ起動。sizeWarningがあってもブロックしない)--> running --(正常終了)--> succeeded
-running --(エラー、またはジョブタイムアウト到達)--> failed
-succeeded --(start.gg入力かつ運営者が承認)--> (Startggへの書き戻し実行) --> succeeded(writebackApproved=true)
+queued --(クライアントがロック取得に成功、計算開始)--> running --(正常終了・complete報告)--> succeeded
+running --(エラー報告、またはハートビート途絶によるタイムアウト)--> failed
+succeeded --(start.gg入力かつ運営者が承認・ブラウザが直接書き戻しを実行)--> (writeback-recorded報告) --> succeeded(writebackApproved=true)
 ```
 
-**多重実行防止**: `targetId`に対して`status`が`queued`または`running`のAdjustmentRunが既に存在する場合、新規AdjustmentRunの作成をD1のトランザクション(SQLiteのUNIQUE制約+トランザクション)で拒否する(FR-013a)。
+**多重実行防止**: `targetId`に対して`status`が`queued`または`running`(かつハートビートが有効期限内)のAdjustmentRunが既に存在する場合、新規AdjustmentRunの作成をD1のトランザクション(SQLiteのUNIQUE制約+トランザクション)で拒否する(FR-013a)。ハートビートが途絶した`running`は自動的に`failed`とみなされ、ロックとして扱われなくなる(research.md #4)。
 
 ---
 
 ## SeedEntry
 
-大会の参加者1名。入力元から読み込む一時データ(永続保管はしない。監査ログ側にはAdjustedSeedResult/DecisionLogとして必要な範囲のみ残る)。
+大会の参加者1名。入力元からブラウザが直接読み込む一時データ(いかなるサーバーにも送信・保管されない。監査ログ側にはAdjustedSeedResult/DecisionLogとして必要な範囲のみ、ブラウザから直接Googleスプレッドシートおよび公開結果として提出される)。
 
 - `userId`: 対戦相手識別用のID
 - `displayName`: ゲーマータグ等の公開ハンドル
@@ -90,24 +89,26 @@ succeeded --(start.gg入力かつ運営者が承認)--> (Startggへの書き戻�
 
 ## AdjustedSeedResult
 
-1回の実行で得られた調整後の並び順。
+1回の実行で得られた調整後の並び順。ブラウザ内(Pyodide)で計算される。
 
 - `runId`(AdjustmentRunへの参照)
 - `entries[]`: 各選手について `{ displayName, userId, adjustedPosition, originalPosition, adjustedWave }`
-- `hiddenValue`は含まない(公開結果APIのレスポンス生成時点で除外。FR-012b)
+- `hiddenValue`は含まない(公開用コピー作成時点でブラウザ側が除外する。FR-012b)
 
-**保存先**: 監査ログ用スプレッドシートに新規シートとして追記(FR-012)。Google Sheets入力の場合はさらに元のスプレッドシート内にも同内容が追記される(FR-009)。
+**保存先**: (1) 監査ログ用スプレッドシートに新規シートとして、ブラウザが直接追記(FR-012)。Google Sheets入力の場合はさらに元のスプレッドシート内にも同内容が追記される(FR-009)。(2) 認証なしの公開結果APIから読めるよう、ブラウザが`POST /runs/{runId}/complete`でCloudflare D1へサニタイズ済みコピーを提出する(research.md #8)。
 
 ---
 
 ## DecisionLog
 
-AdjustedSeedResultの各エントリについて、配置決定の判断根拠。
+AdjustedSeedResultの各エントリについて、配置決定の判断根拠。ブラウザ内で計算される。
 
 - `runId`
 - `position`: 調整後の位置
 - `comparedCandidates[]`: 比較した対戦相手候補ごとの `{ candidateUserId, candidateDisplayName, matchPointValue }`
 - `decisionLogicType`: `best_left_player_based` | `seed_position_based` など、採用した判定ロジックの種別
+
+**保存先**: AdjustedSeedResultと同様(スプレッドシート + D1公開コピー)。
 
 ---
 
@@ -119,25 +120,27 @@ AdjustedSeedResultの各エントリについて、配置決定の判断根拠�
 - `wave`(実際に配置されたWave)
 - `allowedWaves[]`(希望していたWave一覧)
 
+**保存先**: AdjustedSeedResultと同様(スプレッドシート + D1公開コピー)。
+
 ---
 
 ## PreAdjustmentSeedSnapshot
 
-start.gg入力時のみ生成。調整前(Startgg上で仮組みされていた時点)のシード順。
+start.gg入力時のみ生成。調整前(Startgg上で仮組みされていた時点)のシード順。ブラウザがstart.ggから読み込んだ内容から生成する。
 
 - `runId`
 - `entries[]`: `{ userId, displayName, originalPosition }` のみ(氏名等の個人情報・hiddenValueは含めない。FR-012c)
 
-**保存先**: 監査ログ用スプレッドシート内の別シート。
+**保存先**: 監査ログ用スプレッドシート内の別シート(ブラウザが直接書き込む) + D1公開コピー。
 
 ---
 
 ## MatchHistoryIndex(静的アーティファクト)
 
-indexerが生成し、computeジョブが実行のたびに取得して参照する圧縮対戦履歴。
+indexerが生成し、フロントエンド(ブラウザ、DuckDB-WASM)が実行のたびに直接取得して参照する圧縮対戦履歴。形式の詳細は[contracts/match-index-format.md](./contracts/match-index-format.md)を参照。
 
 - `generatedAt`: インデックス生成日時
-- `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #4参照)
-- `pairIndex`: 選手ペア(`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`
+- `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #2参照)
+- `pairIndex`: 選手ペア(`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`。Parquet形式で配布され、DuckDB-WASMがSQLクエリで参照する
 
-**更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。computeジョブは実行開始時に最新版を取得する。
+**更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。ブラウザは実行開始時に最新版を取得する。
