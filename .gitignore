@@ -15,9 +15,20 @@ dist/
 venv/
 env/
 
+# Node.js / frontend / control-plane
+node_modules/
+*.log
+npm-debug.log*
+.vite/
+
+# Cloudflare Workers (control-plane)
+.wrangler/
+.dev.vars
+
 # Environment / secrets
 .env
 .env.*
+!.env.example
 
 # Editor / OS
 .DS_Store

@@ -1,0 +1,25 @@
+{
+  "name": "seed-adjuster-control-plane",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 execute seed-adjuster --local --file=src/db/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute seed-adjuster --remote --file=src/db/schema.sql",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "wrangler": "^3.72.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "@cloudflare/vitest-pool-workers": "^0.5.2",
+    "@cloudflare/workers-types": "^4.20240815.0",
+    "eslint": "^9.9.0",
+    "@eslint/js": "^9.9.0",
+    "typescript-eslint": "^8.2.0",
+    "prettier": "^3.3.3"
+  }
+}

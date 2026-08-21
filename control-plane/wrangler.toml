@@ -1,0 +1,17 @@
+name = "seed-adjuster-control-plane"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+# Free plan only — no billing account is attached to this Cloudflare account.
+# Exceeding free-tier limits must fail closed (errors), never silently upgrade to paid usage.
+# See research.md #0 and #3.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "seed-adjuster"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+# CORS allow-list for the GitHub Pages origin. Override per-environment via `wrangler.toml` env sections
+# or `wrangler secret`/`vars` at deploy time.
+ALLOWED_ORIGIN = "https://REPLACE_WITH_GITHUB_PAGES_ORIGIN"

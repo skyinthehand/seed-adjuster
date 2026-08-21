@@ -1,0 +1,53 @@
+name: Build match-history index
+
+# Public repository → free, unlimited Actions minutes (research.md #0). No user credentials
+# are involved in this workflow (research.md #2).
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # daily, 03:00 JST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # to publish a GitHub Release asset
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: indexer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: python -m src.build_index --out-dir dist
+      - name: Publish release with the index artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="match-index-$(date -u +%Y%m%d%H%M%S)"
+          gh release create "$tag" \
+            --repo "${{ github.repository }}" \
+            --title "Match history index ($tag)" \
+            --notes "Automated build by .github/workflows/indexer.yml" \
+            dist/match-index.parquet
+          asset_url=$(gh release view "$tag" --repo "${{ github.repository }}" --json assets \
+            --jq '.assets[] | select(.name=="match-index.parquet") | .url')
+          python -c "
+import json, sys
+manifest = json.load(open('dist/manifest.json'))
+manifest['parquetUrl'] = sys.argv[1]
+json.dump(manifest, open('dist/manifest.json', 'w'), indent=2, ensure_ascii=False)
+" "$asset_url"
+          gh release upload "$tag" dist/manifest.json --repo "${{ github.repository }}"
+          # Move the 'latest-index' alias to this release so the frontend always points at
+          # a stable URL instead of a timestamped tag (contracts/match-index-format.md).
+          gh release delete latest-index --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create latest-index --repo "${{ github.repository }}" \
+            --title "Match history index (latest)" \
+            --notes "Alias of $tag" \
+            dist/match-index.parquet dist/manifest.json

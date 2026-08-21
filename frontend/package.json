@@ -1,0 +1,37 @@
+{
+  "name": "seed-adjuster-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "benchmark": "tsx scripts/benchmarkAlgorithm.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "pyodide": "^0.26.2",
+    "@duckdb/duckdb-wasm": "^1.28.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5",
+    "@testing-library/react": "^16.0.0",
+    "eslint": "^9.9.0",
+    "@eslint/js": "^9.9.0",
+    "typescript-eslint": "^8.2.0",
+    "eslint-plugin-react": "^7.35.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.16.5"
+  }
+}

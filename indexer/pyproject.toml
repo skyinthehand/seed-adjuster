@@ -1,0 +1,27 @@
+[project]
+name = "seed-adjuster-indexer"
+version = "0.1.0"
+description = "Builds the compact match-history Parquet index from smash_database (see research.md #2)."
+requires-python = ">=3.12"
+dependencies = [
+    "pyarrow>=17.0.0",
+    "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6.0",
+    "black>=24.8.0",
+    "pytest>=8.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.black]
+line-length = 100

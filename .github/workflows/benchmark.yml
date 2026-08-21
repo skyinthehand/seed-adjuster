@@ -1,0 +1,30 @@
+name: Algorithm performance benchmark
+
+# Public repository → free, unlimited Actions minutes (research.md #0). This exists so that
+# future changes to the adjustment algorithm or the match-index query are re-verified
+# automatically against the FR-003/SC-002 60-minute budget, instead of relying on someone
+# remembering to re-run T024 by hand (tasks.md Notes, 2026-08-21 follow-up).
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/engine/**"
+      - "frontend/src/data/**"
+      - "frontend/scripts/benchmarkAlgorithm.ts"
+  workflow_dispatch: {}
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run benchmark

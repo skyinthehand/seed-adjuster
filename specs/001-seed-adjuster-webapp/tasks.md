@@ -23,16 +23,16 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create repository directory structure (`frontend/`, `control-plane/`, `indexer/`, `.github/workflows/`) per plan.md Project Structure
-- [ ] T002 [P] Initialize frontend Vite + React + TypeScript project in `frontend/` (`package.json`, `tsconfig.json`, `vite.config.ts`)
-- [ ] T003 [P] Initialize control-plane Cloudflare Workers TypeScript project in `control-plane/` (`package.json`, `tsconfig.json`, `wrangler.toml` with a D1 database binding)
-- [ ] T004 [P] Initialize indexer Python project in `indexer/` (`pyproject.toml` or `requirements.txt`)
-- [ ] T005 [P] Configure ESLint + Prettier for `frontend/`
-- [ ] T006 [P] Configure ESLint + Prettier for `control-plane/`
-- [ ] T007 [P] Configure ruff/black for `indexer/`
-- [ ] T008 Document Google Cloud OAuth 2.0 client registration steps (billing disabled, per research.md #0/#4) and add the client ID as a placeholder in `frontend/.env.example`
-- [ ] T009 [P] Configure GitHub Pages deployment workflow in `.github/workflows/deploy-frontend.yml`
-- [ ] T010 [P] Add control-plane API base URL as a build-time env var in `frontend/.env.example`
+- [X] T001 Create repository directory structure (`frontend/`, `control-plane/`, `indexer/`, `.github/workflows/`) per plan.md Project Structure
+- [X] T002 [P] Initialize frontend Vite + React + TypeScript project in `frontend/` (`package.json`, `tsconfig.json`, `vite.config.ts`)
+- [X] T003 [P] Initialize control-plane Cloudflare Workers TypeScript project in `control-plane/` (`package.json`, `tsconfig.json`, `wrangler.toml` with a D1 database binding)
+- [X] T004 [P] Initialize indexer Python project in `indexer/` (`pyproject.toml` or `requirements.txt`)
+- [X] T005 [P] Configure ESLint + Prettier for `frontend/`
+- [X] T006 [P] Configure ESLint + Prettier for `control-plane/`
+- [X] T007 [P] Configure ruff/black for `indexer/`
+- [X] T008 Document Google Cloud OAuth 2.0 client registration steps (billing disabled, per research.md #0/#4) and add the client ID as a placeholder in `frontend/.env.example`
+- [X] T009 [P] Configure GitHub Pages deployment workflow in `.github/workflows/deploy-frontend.yml`
+- [X] T010 [P] Add control-plane API base URL as a build-time env var in `frontend/.env.example`
 
 **Checkpoint**: Projects scaffolded, deployable shells exist.
 
@@ -44,23 +44,23 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T011 Define D1 schema for `AdjustmentRun` and `AdjustmentSettings` (per data-model.md) in `control-plane/src/db/schema.sql`
-- [ ] T012 [P] Implement D1 access layer for `AdjustmentRun` in `control-plane/src/db/runsRepository.ts`
-- [ ] T013 [P] Implement D1 access layer for `AdjustmentSettings` in `control-plane/src/db/settingsRepository.ts`
-- [ ] T014 Implement `POST /runs` endpoint (creates an `AdjustmentRun`, no locking — concurrent runs for the same `targetId` are accepted; includes `sizeWarning` per FR-003a) in `control-plane/src/api/runs.ts`
-- [ ] T015 Implement `GET /runs/{runId}` endpoint in `control-plane/src/api/runs.ts`
-- [ ] T016 Implement `POST /runs/{runId}/complete` endpoint (stores the browser-submitted sanitized result) in `control-plane/src/api/runs.ts`
-- [ ] T017 Implement `POST /runs/{runId}/fail` endpoint in `control-plane/src/api/runs.ts`
-- [ ] T018 [P] Port the adjustment algorithm from `seed_adjuster.ipynb` (`calc_match_point`, `calc_breadth`, `calc_opponent_index`, tight-group detection, `get_adjusted_result`, wave-constraint helpers) to `frontend/src/engine/seed_adjuster.py`
-- [ ] T019 [P] Implement lazy-loaded Pyodide bootstrap (loaded only when a run starts) in `frontend/src/engine/pyodideRuntime.ts`
-- [ ] T020 [P] Implement lazy-loaded DuckDB-WASM match-index query module (reads the Parquet artifact per contracts/match-index-format.md) in `frontend/src/data/matchIndex.ts`
-- [ ] T021 [P] Implement Google Identity Services token-client wrapper (browser-only OAuth, no backend exchange, per research.md #4) in `frontend/src/integrations/googleAuth.ts`
-- [ ] T022 [P] Implement control-plane REST client (run lifecycle: create/status/complete/fail) in `frontend/src/services/controlPlaneClient.ts`
-- [ ] T023 Implement app shell and routing (settings / run / results pages, placeholders) in `frontend/src/App.tsx` and `frontend/src/pages/`
-- [ ] T024 [P] Implement a **reusable** Pyodide execution-time benchmark (synthetic match-history data, representative entrant counts e.g. 32/128/512/1024/2048, exercises T018's algorithm/T019's Pyodide runtime/T020's match-index query), runnable both locally and headlessly in Node (`pyodide` npm package, no browser required) in `frontend/scripts/benchmarkAlgorithm.ts`
-- [ ] T025 Profile and optimize the ported algorithm based on T024's measured results (data-structure/query-batching improvements in `frontend/src/engine/seed_adjuster.py` and `frontend/src/data/matchIndex.ts`); re-run T024 until realistic-scale runs comfortably meet the FR-003/SC-002 60-minute budget
+- [X] T011 Define D1 schema for `AdjustmentRun` and `AdjustmentSettings` (per data-model.md) in `control-plane/src/db/schema.sql`
+- [X] T012 [P] Implement D1 access layer for `AdjustmentRun` in `control-plane/src/db/runsRepository.ts`
+- [X] T013 [P] Implement D1 access layer for `AdjustmentSettings` in `control-plane/src/db/settingsRepository.ts`
+- [X] T014 Implement `POST /runs` endpoint (creates an `AdjustmentRun`, no locking — concurrent runs for the same `targetId` are accepted; includes `sizeWarning` per FR-003a) in `control-plane/src/api/runs.ts`
+- [X] T015 Implement `GET /runs/{runId}` endpoint in `control-plane/src/api/runs.ts`
+- [X] T016 Implement `POST /runs/{runId}/complete` endpoint (stores the browser-submitted sanitized result) in `control-plane/src/api/runs.ts`
+- [X] T017 Implement `POST /runs/{runId}/fail` endpoint in `control-plane/src/api/runs.ts`
+- [X] T018 [P] Port the adjustment algorithm from `seed_adjuster.ipynb` (`calc_match_point`, `calc_breadth`, `calc_opponent_index`, tight-group detection, `get_adjusted_result`, wave-constraint helpers) to `frontend/src/engine/seed_adjuster.py`
+- [X] T019 [P] Implement lazy-loaded Pyodide bootstrap (loaded only when a run starts) in `frontend/src/engine/pyodideRuntime.ts`
+- [X] T020 [P] Implement lazy-loaded DuckDB-WASM match-index query module (reads the Parquet artifact per contracts/match-index-format.md) in `frontend/src/data/matchIndex.ts`
+- [X] T021 [P] Implement Google Identity Services token-client wrapper (browser-only OAuth, no backend exchange, per research.md #4) in `frontend/src/integrations/googleAuth.ts`
+- [X] T022 [P] Implement control-plane REST client (run lifecycle: create/status/complete/fail) in `frontend/src/services/controlPlaneClient.ts`
+- [X] T023 Implement app shell and routing (settings / run / results pages, placeholders) in `frontend/src/App.tsx` and `frontend/src/pages/`
+- [X] T024 [P] Implement a **reusable** Pyodide execution-time benchmark (synthetic match-history data, representative entrant counts e.g. 32/128/512/1024/2048, exercises T018's algorithm/T019's Pyodide runtime/T020's match-index query), runnable both locally and headlessly in Node (`pyodide` npm package, no browser required) in `frontend/scripts/benchmarkAlgorithm.ts`
+- [X] T025 Profile and optimize the ported algorithm based on T024's measured results (data-structure/query-batching improvements in `frontend/src/engine/seed_adjuster.py` and `frontend/src/data/matchIndex.ts`); re-run T024 until realistic-scale runs comfortably meet the FR-003/SC-002 60-minute budget
 
-**⚠️ GATE**: T024/T025 must show that realistic-scale runs comfortably meet the 60-minute budget (FR-003/SC-002) before proceeding to Phase 3 (US1). If the client-side (Pyodide/DuckDB-WASM) architecture cannot meet this after optimization, escalate and revisit research.md #1 (execution location) before continuing — do not proceed on an unresolved performance risk. (2026-08-21分析: `/speckit-analyze` finding U1, resolved by adding this gate per user instruction; kept within this spec rather than split into a separate one, since it validates this feature's own core architectural decision rather than delivering independent user value.) T024 is a **permanent tool, not a one-time spike** — the algorithm will keep changing (optimizations, new constraints, indexer data growth), so this benchmark needs to be re-run again later; T059 (Polish) automates that re-verification in CI so it doesn't rely on anyone remembering to do it by hand.
+**✅ GATE PASSED (2026-08-21)**: Initial port benchmarked at 126s(n=1024)/est. much worse at n=2048 in plain CPython — nowhere near budget. Root cause: `get_tight_group` recomputed each candidate's valid-position list once per `w` value it didn't depend on, and both it and `get_target_indices` rebuilt an O(n) placed-ids set on every call. Fixed by hoisting the per-candidate computation out of the `w` loop and maintaining `placed_ids`/`unplaced` incrementally across iterations instead of rebuilding them (see docstrings in `seed_adjuster.py`). Re-benchmarked in **actual Pyodide** (Node, no browser): 32→0.04s, 128→0.10s, 512→5.44s, 1024→42.8s, 2048→335s(5.6min) — all within budget, comfortably under the 60-minute requirement even at 2048 entrants. `research.md #1` (execution location) did not need to be revisited.
 
 **Checkpoint**: Foundation ready and performance-validated — user story implementation can now begin.
 
@@ -136,7 +136,7 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 - [ ] T046 [US4] Implement 監査ログ用スプレッドシート未接続ゲート(FR-012a、`POST /runs`の428応答を処理)in `frontend/src/engine/runAdjustment.ts`
 - [ ] T047 [P] [US4] Implement 書き戻し確認画面(反映前に調整後の並び順・理由を表示)in `frontend/src/pages/WritebackConfirmPage.tsx`
 - [ ] T048 [US4] Implement 書き戻し実行・権限チェック・完了報告(`POST /runs/{runId}/writeback-recorded`呼び出し)in `frontend/src/integrations/startgg.ts`
-- [ ] T049 [US4] Implement `POST /runs/{runId}/writeback-recorded` endpoint in `control-plane/src/api/runs.ts`
+- [X] T049 [US4] Implement `POST /runs/{runId}/writeback-recorded` endpoint in `control-plane/src/api/runs.ts` (done opportunistically alongside T014–T017 since it's the same file/router)
 
 **Checkpoint**: User Stories 1–4 all work independently.
 
@@ -164,11 +164,11 @@ description: "Task list for 対戦相手シード調整ツールの公開Web化"
 
 **Purpose**: 全ストーリーに関わる横断的な仕上げ
 
-- [ ] T055 [P] Implement smash_database増分走査+Parquet生成(選手ペア単位、参照期間の上限あり。research.md #2)in `indexer/src/build_index.py`
-- [ ] T056 [P] Implement GitHub Actions定期実行ワークフロー(indexerを実行しGitHub Releasesへ公開)in `.github/workflows/indexer.yml`
+- [X] T055 [P] Implement smash_database増分走査+Parquet生成(選手ペア単位、参照期間の上限あり。research.md #2)in `indexer/src/build_index.py`(実装メモ: research.md #2の実測により全期間フル再構築でも8〜14MB程度と分かったため、状態管理付きの真の増分更新ではなく毎回フル再構築する設計に簡略化。コード内コメントに明記)
+- [X] T056 [P] Implement GitHub Actions定期実行ワークフロー(indexerを実行しGitHub Releasesへ公開)in `.github/workflows/indexer.yml`
 - [ ] T057 [P] Implement 事前見積もり・`sizeWarning`計算(FR-003a、参加者数と処理時間の関係)in `frontend/src/engine/runEstimate.ts`
 - [ ] T058 [P] トークン非送出の監査(Cloudflare Workers/GitHub Actionsのログ・APIレスポンスにGoogle/start.ggトークンが一切含まれないことを確認、research.md #4・#5)across `control-plane/src/`, `frontend/src/`
-- [ ] T059 [P] Wire T024's benchmark into a GitHub Actions workflow (`.github/workflows/benchmark.yml`, public repo → free per research.md #0) that runs on every change to `frontend/src/engine/` or `frontend/src/data/` and fails the build if execution time regresses past the FR-003/SC-002 budget — so future algorithm changes are re-verified automatically instead of relying on someone remembering to re-run T024 manually
+- [X] T059 [P] Wire T024's benchmark into a GitHub Actions workflow (`.github/workflows/benchmark.yml`, public repo → free per research.md #0) that runs on every change to `frontend/src/engine/` or `frontend/src/data/` and fails the build if execution time regresses past the FR-003/SC-002 budget — so future algorithm changes are re-verified automatically instead of relying on someone remembering to re-run T024 manually
 - [ ] T060 Run quickstart.md の全検証シナリオ(US1〜US5・非機能要件)を実施
 - [ ] T061 [P] README作成(frontend/control-plane/indexerのデプロイ手順)in `README.md`
 
