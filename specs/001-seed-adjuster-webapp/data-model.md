@@ -1,20 +1,20 @@
 # Data Model: 対戦相手シード調整ツールの公開Web化
 
-spec.md の Key Entities を、research.md で決定した保管先(Firestore / Google スプレッドシート / 静的インデックス)に対応付けて具体化する。フィールド名は実装時の最終命名を拘束しない設計レベルの記述。
+spec.md の Key Entities を、research.md で決定した保管先(Cloudflare D1 / Google スプレッドシート / 静的インデックス)に対応付けて具体化する。フィールド名は実装時の最終命名を拘束しない設計レベルの記述。
 
 ## 保管先の全体像
 
 | エンティティ | 保管先 | 備考 |
 |---|---|---|
-| ConnectedAccount | Firestore | 認証トークンは暗号化して保存 |
-| AdjustmentSettings | Firestore | 対象(大会)単位で保持 |
-| AdjustmentRun | Firestore | 実行状態・ロックを兼ねる |
+| ConnectedAccount | Cloudflare D1(control-plane) | 認証トークンは暗号化して保存。無料プラン・カード登録不要(research.md #0, #2) |
+| AdjustmentSettings | Cloudflare D1(control-plane) | 対象(大会)単位で保持 |
+| AdjustmentRun | Cloudflare D1(control-plane) | 実行状態・ロックを兼ねる |
 | SeedEntry | 実行時にGoogleスプレッドシート/start.ggから読み込む(永続保管はしない) | |
-| AdjustedSeedResult | Googleスプレッドシート(監査ログ用) + Firestore(実行への参照) | 公開結果APIの読み出し元 |
+| AdjustedSeedResult | Googleスプレッドシート(監査ログ用) + D1(実行への参照) | 公開結果APIの読み出し元 |
 | DecisionLog | Googleスプレッドシート(監査ログ用) | 既存ノートブックのmatch_log相当 |
 | WaveConstraintViolation | Googleスプレッドシート(監査ログ用) | |
 | PreAdjustmentSeedSnapshot | Googleスプレッドシート(監査ログ用、別シート) | start.gg入力時のみ生成。個人情報を含まない |
-| MatchHistoryIndex | 静的アーティファクト(indexerが生成・公開) | 実行時にbackendが読み込む圧縮対戦履歴 |
+| MatchHistoryIndex | 静的アーティファクト(indexerが生成・GitHub Releasesで公開) | 実行のたびにcomputeジョブが読み込む圧縮対戦履歴 |
 
 ---
 
@@ -69,7 +69,7 @@ queued --(事前見積もりが閾値超過)--> rejected_preflight
 succeeded --(start.gg入力かつ運営者が承認)--> (Startggへの書き戻し実行) --> succeeded(writebackApproved=true)
 ```
 
-**多重実行防止**: `targetId`に対して`status`が`queued`または`running`のAdjustmentRunが既に存在する場合、新規AdjustmentRunの作成をFirestoreトランザクションで拒否する(FR-013a)。
+**多重実行防止**: `targetId`に対して`status`が`queued`または`running`のAdjustmentRunが既に存在する場合、新規AdjustmentRunの作成をD1のトランザクション(SQLiteのUNIQUE制約+トランザクション)で拒否する(FR-013a)。
 
 ---
 
@@ -132,10 +132,10 @@ start.gg入力時のみ生成。調整前(Startgg上で仮組みされていた�
 
 ## MatchHistoryIndex(静的アーティファクト)
 
-indexerが生成し、backendが実行のたびに取得して参照する圧縮対戦履歴。
+indexerが生成し、computeジョブが実行のたびに取得して参照する圧縮対戦履歴。
 
 - `generatedAt`: インデックス生成日時
-- `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #3参照)
+- `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #4参照)
 - `pairIndex`: 選手ペア(`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`
 
-**更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。backendは実行開始時に最新版を取得する。
+**更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。computeジョブは実行開始時に最新版を取得する。

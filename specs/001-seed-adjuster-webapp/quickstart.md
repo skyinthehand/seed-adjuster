@@ -6,8 +6,8 @@
 
 - Googleアカウント(検証用スプレッドシートを1つ作成できること)
 - （US4を検証する場合）start.gg個人アクセストークンを発行できるstart.ggアカウントと、テスト用イベント/フェーズへの運営権限
-- バックエンド(Cloud Run API + Cloud Run Jobs)・Firestore・indexerの成果物(MatchHistoryIndex)がデプロイ済みであること
-- フロントエンド(GitHub Pages)がバックエンドAPIのオリジンを指す設定でビルド・デプロイ済みであること
+- 制御プレーン(Cloudflare Workers + D1)、GitHub Actionsワークフロー(`run-adjustment` / `indexer`)、indexerの成果物(MatchHistoryIndex)がデプロイ・公開済みであること。いずれのサービスにも支払い手段は登録しないこと(research.md #0)
+- フロントエンド(GitHub Pages)が制御プレーンAPIのオリジンを指す設定でビルド・デプロイ済みであること
 
 ## シナリオ1: Googleスプレッドシートでのシード自動調整(US1, P1)
 
@@ -51,4 +51,6 @@
 
 - **60分以内の完了(SC-002)**: 数百人規模相当のテストデータで実行し、`finishedAt - startedAt` が60分以内であることを確認する。
 - **事前拒否(FR-003a)**: 意図的に極端な参加者数のテストデータで実行し、`POST /runs` が422(`ESTIMATED_TIME_EXCEEDED`)を返すことを確認する。
-- **メモリ制約(FR-002)**: Cloud Run Jobsの実行ログから、smash_database全体ではなくMatchHistoryIndex(圧縮アーティファクト)のみを取得していること、実行時のメモリ使用量がインスタンス上限を超えていないことを確認する。
+- **メモリ制約(FR-002)**: `run-adjustment`ワークフローの実行ログから、smash_database全体ではなくMatchHistoryIndex(圧縮アーティファクト)のみを取得していること、実行時のメモリ使用量がGitHub Actionsランナーの上限を超えていないことを確認する。
+- **課金が発生しないこと(SC-005)**: Cloudflare/GitHubいずれのアカウントにも支払い手段が登録されていないことを確認した上で、`/runs`を短時間に連続で呼び出し、無料枠を超えた場合に課金ではなく明示的なエラー応答(レート制限・キュー待ち等)になることを確認する(research.md #0)。
+- **トークン漏洩がないこと(research.md #3)**: `run-adjustment`ワークフローの実行ログ(公開リポジトリのため誰でも閲覧可能)に、Google/start.ggのアクセストークン・リフレッシュトークンが一切出力されていないことを確認する。
