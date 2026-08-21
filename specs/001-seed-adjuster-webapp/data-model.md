@@ -141,6 +141,6 @@ indexerが生成し、フロントエンド(ブラウザ、DuckDB-WASM)が実行
 
 - `generatedAt`: インデックス生成日時
 - `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #2参照)
-- `pairIndex`: 選手ペア(`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`。Parquet形式で配布され、DuckDB-WASMがSQLクエリで参照する
+- `pairIndex`: 選手ペア(数値ID`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`。Parquet形式(1行28バイトの整数のみ)で配布され、DuckDB-WASMがSQLクエリで参照する。実測調査(research.md #2)では、全期間・全地域(推定約145万試合)を対象としても圧縮後概ね1桁MB台〜十数MB程度と見積もられている
 
 **更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。ブラウザは実行開始時に最新版を取得する。
