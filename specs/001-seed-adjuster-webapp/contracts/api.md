@@ -20,9 +20,9 @@ Googleの認可コード交換を行い、リフレッシュトークンを`Conn
 - Response 200: `{ "google": { "connected": boolean }, "startgg": { "connected": boolean } }`
 
 ### `POST /auth/startgg/token`
-start.gg個人アクセストークンを登録する(research.md #6)。
+start.gg個人アクセストークンを登録する(research.md #6)。登録した値は暗号化してD1に保存し、以後どのAPIレスポンスにも生の値を含めない。
 - Request: `{ "accessToken": string }`
-- Response 200: `{ "connected": true }`
+- Response 200: `{ "connected": true }`(トークンの値自体は返さない)
 - Response 400: トークン検証失敗(start.gg APIへの疎通確認結果)
 
 ### `GET /settings/{targetId}`
@@ -77,7 +77,7 @@ start.gg入力の実行結果をStartggへ書き戻すことを承認し、反�
 ## 内部(GitHub Actionsジョブ専用、OIDC検証)
 
 ### `POST /internal/runs/{runId}/credentials`
-`compute`ジョブが実行開始直後に呼び出し、Google/start.ggの復号済みトークンおよび入力元・監査ログ保存先の参照情報を取得する。GitHub Actions OIDC IDトークンを`Authorization: Bearer`で送付する必要があり、Workerは署名・発行者(`https://token.actions.githubusercontent.com`)・`repository`クレイム(本リポジトリと完全一致)を検証する(research.md #3)。
+`compute`ジョブが実行開始直後に呼び出し、Google/start.ggの復号済みトークンおよび入力元・監査ログ保存先の参照情報を取得する。GitHub Actions OIDC IDトークンを`Authorization: Bearer`で送付する必要があり、Workerは署名・発行者(`https://token.actions.githubusercontent.com`)・`repository`クレイム(本リポジトリと完全一致)を検証する(research.md #3)。復号済みの値をこのレスポンスとして返すのは、OIDC検証済みの`compute`ジョブに対する一度きりの払い出しのみであり、他のいかなるエンドポイント(`/auth/*`, `GET /runs/*`等)もトークンの値を返さない(research.md #5, #6)。
 - Response 200: `{ "googleAccessToken": string, "startggAccessToken": string | null, "sourceReference": object, "auditSpreadsheetId": string, "settingsSnapshot": object }`
 - Response 401: OIDC検証失敗
 - Response 409: 当該`runId`の資格情報が既に払い出し済み(一度きりの払い出し。research.md #3)

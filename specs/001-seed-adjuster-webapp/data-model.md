@@ -25,10 +25,12 @@ spec.md の Key Entities を、research.md で決定した保管先(Cloudflare D
 - `userSessionId`: このツールにおける利用者を識別するID(ブラウザセッション/簡易アカウントの識別子)
 - `googleRefreshTokenEncrypted`: Google OAuthのリフレッシュトークン(暗号化)。未連携時はnull
 - `googleGrantedScopes`: 付与されたOAuthスコープ一覧(Sheets読み書き・専用スプレッドシート作成用のDrive file scope等)
-- `startggAccessTokenEncrypted`: start.gg個人アクセストークン(暗号化)。未連携時はnull
+- `startggAccessTokenEncrypted`: start.gg個人アクセストークン(利用者が設定ページに入力した値をそのまま暗号化して保存。研究上の暫定対応ではなく採用方式として確定。research.md #6)。未連携時はnull
 - `connectedAt` / `lastUsedAt`
 
 **バリデーション**: 書き込み系操作(実行開始・設定変更・Startgg書き戻し)は、リクエスト元の`userSessionId`に紐づくConnectedAccountの認可範囲内でのみ許可する(FR-020)。
+
+**漏洩防止(research.md #5, #6)**: `googleRefreshTokenEncrypted` / `startggAccessTokenEncrypted` の暗号鍵はD1には保存せず、Cloudflare Workersのシークレットとして別管理する。いずれの値も、登録後にAPIレスポンスへ含めて返してはならない(`GET /auth/status`は真偽値のみを返す)。ログ(Cloudflare Workers・GitHub Actions双方)にも出力してはならない。
 
 ---
 
