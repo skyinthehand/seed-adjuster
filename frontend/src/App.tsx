@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import { SettingsPage } from "./pages/SettingsPage";
 import { RunPage } from "./pages/RunPage";
 import { RunStatusPage } from "./pages/RunStatusPage";
@@ -7,7 +7,7 @@ import { WritebackConfirmPage } from "./pages/WritebackConfirmPage";
 
 export function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <nav>
         <Link to="/">実行</Link> | <Link to="/settings">設定</Link>
       </nav>
@@ -18,6 +18,6 @@ export function App() {
         <Route path="/results/:runId" element={<ResultsPage />} />
         <Route path="/writeback/:runId" element={<WritebackConfirmPage />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
