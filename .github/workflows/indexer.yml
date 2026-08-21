@@ -37,12 +37,7 @@ jobs:
             dist/match-index.parquet
           asset_url=$(gh release view "$tag" --repo "${{ github.repository }}" --json assets \
             --jq '.assets[] | select(.name=="match-index.parquet") | .url')
-          python -c "
-import json, sys
-manifest = json.load(open('dist/manifest.json'))
-manifest['parquetUrl'] = sys.argv[1]
-json.dump(manifest, open('dist/manifest.json', 'w'), indent=2, ensure_ascii=False)
-" "$asset_url"
+          python scripts/set_manifest_parquet_url.py "$asset_url"
           gh release upload "$tag" dist/manifest.json --repo "${{ github.repository }}"
           # Move the 'latest-index' alias to this release so the frontend always points at
           # a stable URL instead of a timestamped tag (contracts/match-index-format.md).
