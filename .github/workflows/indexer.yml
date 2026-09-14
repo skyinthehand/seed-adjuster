@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write # to publish a GitHub Release asset
+  contents: write # to force-push the published-index branch
 
 jobs:
   build-index:
@@ -24,25 +24,27 @@ jobs:
           python-version: "3.12"
       - run: pip install .
       - run: python -m src.build_index --out-dir dist
-      - name: Publish release with the index artifacts
+      - name: Publish index to the published-index branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          # GitHub Releases assets don't support CORS (no Access-Control-Allow-Origin on
+          # release-assets.githubusercontent.com), so the browser frontend can't fetch them
+          # directly. raw.githubusercontent.com does support CORS, so the index is pushed to
+          # a dedicated branch instead. Every run is a full rebuild (research.md #2), and this
+          # branch's only purpose is serving the latest snapshot, so each run force-pushes a
+          # single fresh commit rather than accumulating history — this branch's git history
+          # is disposable by design; never merge it into main or treat prior commits as durable.
+          PARQUET_URL: https://raw.githubusercontent.com/${{ github.repository }}/published-index/match-index.parquet
         run: |
           set -euo pipefail
-          tag="match-index-$(date -u +%Y%m%d%H%M%S)"
-          gh release create "$tag" \
-            --repo "${{ github.repository }}" \
-            --title "Match history index ($tag)" \
-            --notes "Automated build by .github/workflows/indexer.yml" \
-            dist/match-index.parquet
-          asset_url=$(gh release view "$tag" --repo "${{ github.repository }}" --json assets \
-            --jq '.assets[] | select(.name=="match-index.parquet") | .url')
-          python scripts/set_manifest_parquet_url.py "$asset_url"
-          gh release upload "$tag" dist/manifest.json --repo "${{ github.repository }}"
-          # Move the 'latest-index' alias to this release so the frontend always points at
-          # a stable URL instead of a timestamped tag (contracts/match-index-format.md).
-          gh release delete latest-index --repo "${{ github.repository }}" --yes --cleanup-tag || true
-          gh release create latest-index --repo "${{ github.repository }}" \
-            --title "Match history index (latest)" \
-            --notes "Alias of $tag" \
-            dist/match-index.parquet dist/manifest.json
+          python scripts/set_manifest_parquet_url.py "$PARQUET_URL"
+
+          publish_dir="$(mktemp -d)"
+          cp dist/match-index.parquet dist/manifest.json "$publish_dir"/
+          cd "$publish_dir"
+          git init -q -b published-index
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add match-index.parquet manifest.json
+          git commit -q -m "Automated index build $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git push -f origin published-index

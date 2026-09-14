@@ -175,7 +175,7 @@ def main() -> None:
     parquet_path = args.out_dir / "match-index.parquet"
     write_parquet(rows, parquet_path)
 
-    manifest["parquetUrl"] = "REPLACE_WITH_RELEASE_ASSET_URL"  # filled in by the publishing workflow step
+    manifest["parquetUrl"] = "REPLACE_WITH_PARQUET_URL"  # filled in by the publishing workflow step
     (args.out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
 
     print(f"Wrote {parquet_path} ({parquet_path.stat().st_size / 1e6:.2f} MB) and manifest.json", file=sys.stderr)

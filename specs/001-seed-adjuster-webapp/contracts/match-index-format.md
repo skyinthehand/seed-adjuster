@@ -4,7 +4,7 @@
 
 ## 配布方法
 
-- indexerは生成したインデックスファイルを **Parquet形式**で、公開URL経由でHTTP GETできる場所(例: GitHub Releasesのアセット)に配置する。
+- indexerは生成したインデックスファイルを **Parquet形式**で、公開URL経由でHTTP GETできる場所に配置する。具体的には`seed-adjuster`リポジトリの専用ブランチ`published-index`にコミットし、`raw.githubusercontent.com`経由で配布する(GitHub Releasesのアセットは`Access-Control-Allow-Origin`を返さずブラウザから直接fetchできないため不採用。`raw.githubusercontent.com`は`Access-Control-Allow-Origin: *`を返すことを確認済み)。毎回フルリビルドするため、`published-index`ブランチは履歴を積まずforce pushで1コミットに置き換える(このブランチの履歴は使い捨てで、mainにマージしない)。
 - フロントエンドは実行開始のたびに最新版インデックスを取得し、DuckDB-WASMにロードする。取得に失敗した場合、そのAdjustmentRunは`failed`とし、`failureHint`にその旨を記録する(FR-014)。
 
 ## スキーマ(論理形式)
