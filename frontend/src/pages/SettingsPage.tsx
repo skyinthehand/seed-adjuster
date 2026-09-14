@@ -313,6 +313,94 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
                 <p>{WAVE_OVERRIDE_LABELS[name].help}</p>
               </div>
             ))}
+
+            <details>
+              <summary>設定例を見る</summary>
+              <p>
+                同じスプレッドシート内に、以下のような3つのシートを用意する例です(シート名は自由に決めて、上の2つの入力欄にその名前を指定します)。
+              </p>
+
+              <p>
+                <strong>①メインシート</strong>(実行ページで指定するシート。<code>discriminator</code>列が必要):
+              </p>
+              <table border={1} cellPadding={4}>
+                <thead>
+                  <tr>
+                    <th>user_id</th>
+                    <th>player_name</th>
+                    <th>discriminator</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>111</td>
+                    <td>あいうえお</td>
+                    <td>p1</td>
+                  </tr>
+                  <tr>
+                    <td>222</td>
+                    <td>かきくけこ</td>
+                    <td>p2</td>
+                  </tr>
+                  <tr>
+                    <td>333</td>
+                    <td>さしすせそ</td>
+                    <td>p3</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p>
+                <strong>②Waveパターン設定用ワークシート</strong>(例: シート名「WavePattern」。シードの位置が上から
+                <code>pattern</code>の番号順に繰り返しWaveへ割り当てられます):
+              </p>
+              <table border={1} cellPadding={4}>
+                <thead>
+                  <tr>
+                    <th>pattern</th>
+                    <th>wave</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>AM</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>PM</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p>→ 1番目・3番目・5番目…のシード位置がAM、2番目・4番目・6番目…がPMのWaveになります。</p>
+
+              <p>
+                <strong>③選手ごとの希望Wave設定用ワークシート</strong>(例: シート名「PlayerWave」。同じ
+                <code>discriminator</code>を複数行書くと、そのいずれかのWaveでよいという意味になります):
+              </p>
+              <table border={1} cellPadding={4}>
+                <thead>
+                  <tr>
+                    <th>discriminator</th>
+                    <th>wave</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>p1</td>
+                    <td>AM</td>
+                  </tr>
+                  <tr>
+                    <td>p2</td>
+                    <td>PM</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p>
+                → p1はAMのみ希望、p2はPMのみ希望。<code>discriminator</code>がこのシートに1行もない選手(例:
+                p3)は希望なし(どのWaveでもよい)扱いになります。
+              </p>
+            </details>
           </fieldset>
 
           <button type="button" onClick={handleSave} disabled={saving}>
