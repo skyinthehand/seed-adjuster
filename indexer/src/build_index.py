@@ -29,7 +29,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 
-REPO = "tosakazu/smash_database"
+REPO = "skyinthehand/smash_database"
 RAW_BASE = f"https://raw.githubusercontent.com/{REPO}/main"
 TOURNAMENTS_JSONL_URL = f"{RAW_BASE}/data/startgg/tournaments.jsonl"
 

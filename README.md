@@ -6,7 +6,7 @@
 
 - **`frontend/`**: React + TypeScript + Vite。GitHub Pagesにホストする静的サイト。シード自動調整の計算そのもの(Pyodide)と対戦履歴の検索(DuckDB-WASM)は、すべて**ブラウザ内**で完結する。サーバー側の可変コンピュートは一切使わない(research.md #0/#1)。
 - **`control-plane/`**: Cloudflare Workers + D1。実行記録・パラメータ設定・公開結果キャッシュの記録のみを担う薄い層。計算は行わない。Free Planのみで運用し、超過時は課金ではなくエラーで失敗する設計(research.md #0/#3)。
-- **`indexer/`**: Python。`tosakazu/smash_database` から対戦履歴を集約し、コンパクトなParquet形式の索引(MatchHistoryIndex)を生成する。GitHub Actionsで定期実行し、GitHub Releasesに成果物を公開する(research.md #2)。
+- **`indexer/`**: Python。`skyinthehand/smash_database` から対戦履歴を集約し、コンパクトなParquet形式の索引(MatchHistoryIndex)を生成する。GitHub Actionsで定期実行し、GitHub Releasesに成果物を公開する(research.md #2)。
 
 **大原則**: どのコンポーネントにも支払い手段を一切登録しない状態で運用できることを前提に設計している(research.md #0)。デプロイ手順の中で課金を有効化する操作は絶対に行わないこと。
 
