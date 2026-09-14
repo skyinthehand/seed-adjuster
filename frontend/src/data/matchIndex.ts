@@ -1,7 +1,13 @@
 // Lazy-loaded DuckDB-WASM match-history query module (research.md #2, contracts/match-index-format.md).
-// Only imported once a run starts. Caches the Parquet artifact in the browser Cache API,
-// keyed by the manifest's `generatedAt`, so repeat runs against an unchanged index skip
-// the download entirely (research.md #2 "ランタイム・インデックスのキャッシュ方針").
+// Only imported once a run starts.
+//
+// Deliberately does NOT cache the Parquet/tournaments.json bodies anywhere (2026-09-15,
+// replaces an earlier Cache-API-based scheme keyed by manifest.generatedAt): indexer
+// force-pushes new content to the same URL on every run, and in practice a viewer's browser
+// still served a stale, pre-update body from the app's own Cache Storage after a fresh
+// indexer run — clearing site data was the only fix. Always re-fetching fresh (no-store, and
+// no application-level cache) trades a few extra seconds/MB per run for never showing stale
+// match history again — see research.md #2 for the updated policy.
 
 export interface MatchIndexManifest {
   formatVersion: number;
@@ -20,7 +26,6 @@ export interface MatchRecord {
 export type TournamentDirectory = Record<string, string>;
 
 const SUPPORTED_FORMAT_VERSION = 1;
-const CACHE_NAME = "seed-adjuster-match-index-v1";
 
 async function fetchManifest(manifestUrl: string): Promise<MatchIndexManifest> {
   const response = await fetch(manifestUrl, { cache: "no-store" });
@@ -30,22 +35,11 @@ async function fetchManifest(manifestUrl: string): Promise<MatchIndexManifest> {
   return response.json();
 }
 
-async function fetchParquetCached(manifest: MatchIndexManifest): Promise<ArrayBuffer> {
-  const cache = await caches.open(CACHE_NAME);
-  const cacheKey = new Request(`${manifest.parquetUrl}#${manifest.generatedAt}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) return cached.arrayBuffer();
-
-  // no-store: raw.githubusercontent.com sends Cache-Control: max-age=300 on this URL, but
-  // indexer force-pushes new content to the same URL on every run — the browser's own HTTP
-  // cache can't tell the content changed and would happily serve a stale (pre-schema-change)
-  // body for up to 5 minutes. Our own Cache API layer above already versions correctly by
-  // generatedAt, so bypassing the browser cache here is safe and necessary.
+async function fetchParquet(manifest: MatchIndexManifest): Promise<ArrayBuffer> {
   const response = await fetch(manifest.parquetUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`対戦履歴インデックス(Parquet)の取得に失敗しました (${response.status})`);
   }
-  await cache.put(cacheKey, response.clone());
   return response.arrayBuffer();
 }
 
@@ -64,7 +58,7 @@ export async function loadMatchLookup(
       `対戦履歴インデックスの形式(v${manifest.formatVersion})に対応していません(対応: v${SUPPORTED_FORMAT_VERSION})`,
     );
   }
-  const parquetBuffer = await fetchParquetCached(manifest);
+  const parquetBuffer = await fetchParquet(manifest);
 
   const duckdb = await import("@duckdb/duckdb-wasm");
   const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
@@ -113,29 +107,16 @@ function tournamentsUrlFromManifestUrl(manifestUrl: string): string {
 
 /**
  * Fetches the tournamentId -> name lookup table (002-result-decision-detail,
- * contracts/tournament-directory.md), published alongside manifest.json. Cached the same way
- * as the Parquet artifact (keyed by the manifest's generatedAt) so repeat opens of the
- * placement-decision detail view don't re-fetch it. Only called lazily when that detail view
- * is first opened — never during a normal run (research.md R1, R4).
+ * contracts/tournament-directory.md), published alongside manifest.json. Only called lazily
+ * when the placement-decision detail view is first opened — never during a normal run
+ * (research.md R1, R4). Not cached — see the module-level comment above.
  */
 export async function fetchTournamentDirectory(manifestUrl: string): Promise<TournamentDirectory> {
-  const manifest = await fetchManifest(manifestUrl);
   const tournamentsUrl = tournamentsUrlFromManifestUrl(manifestUrl);
-  const cache = await caches.open(CACHE_NAME);
-  const cacheKey = new Request(`${tournamentsUrl}#${manifest.generatedAt}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) {
-    const body: { tournaments: TournamentDirectory } = await cached.json();
-    return body.tournaments;
-  }
-
-  // no-store: same reasoning as fetchParquetCached() above — this URL is reused across
-  // indexer runs, so the browser's own HTTP cache must be bypassed.
   const response = await fetch(tournamentsUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`大会名対応表の取得に失敗しました (${response.status})`);
   }
-  await cache.put(cacheKey, response.clone());
   const body: { tournaments: TournamentDirectory } = await response.json();
   return body.tournaments;
 }
