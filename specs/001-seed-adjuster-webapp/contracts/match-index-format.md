@@ -17,6 +17,7 @@ Parquetファイルは以下の論理スキーマを持つテーブル1つで構
 | `userIdB` | int64 | 選手ペアのうち数値として大きい方のID |
 | `timestamp` | int64 | 対戦が行われた日時(Unix time) |
 | `numEntrants` | int32 | その対戦が行われた大会の参加者数 |
+| `tournamentId` | int64 | その対戦が行われた大会のID(002フィーチャー、`tournaments.json`で大会名に解決する) |
 
 - `userIdA` < `userIdB` に正規化し、同一ペアの対戦は複数行(対戦ごとに1行)として保持する(DuckDB-WASMでのSQL集計に適した縦持ち形式)。
 - 収録される対戦は`coveragePeriod.from`以降のみ(近さ指標への寄与が実質ゼロとなる古い対戦を除外する運用。research.md #2)。
@@ -34,6 +35,10 @@ Parquetファイルは以下の論理スキーマを持つテーブル1つで構
 ```
 
 - `formatVersion`はスキーマ変更時にインクリメントし、フロントエンド側は非対応バージョンを検出した場合、該当実行を`failed`として扱う。
+
+## 大会名対応表(tournaments.json、002フィーチャーで追加)
+
+配置判断根拠の詳細確認(002-result-decision-detail)向けに、`tournamentId`を大会名に解決するための小さな対応表を、`manifest.json`と同じ場所に追加公開する。詳細は[002の`contracts/tournament-directory.md`](../../002-result-decision-detail/contracts/tournament-directory.md)を参照。
 
 ## 増分更新の契約
 

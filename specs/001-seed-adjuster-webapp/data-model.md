@@ -13,10 +13,10 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 | AdjustmentRun | Cloudflare D1(control-plane) | 実行状態の記録。ロックは行わず、同一対象への複数実行を許容する(research.md #3) |
 | SeedEntry | 実行時にGoogleスプレッドシート/start.ggからブラウザが直接読み込む(永続保管はしない) | |
 | AdjustedSeedResult | Googleスプレッドシート(監査ログ用、ブラウザが直接書き込む) + D1(ブラウザが提出する公開用サニタイズ済みコピー) | 公開結果APIの読み出し元はD1側 |
-| DecisionLog | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | 既存ノートブックのmatch_log相当 |
+| DecisionLog | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | 既存ノートブックのmatch_log相当。比較候補ごとの実際の対戦記録(`matches[]`)は002フィーチャーで追加 |
 | WaveConstraintViolation | Googleスプレッドシート(監査ログ用) + D1(公開用コピー) | |
 | PreAdjustmentSeedSnapshot | Googleスプレッドシート(監査ログ用、別シート) + D1(公開用コピー) | start.gg入力時のみ生成。個人情報を含まない |
-| MatchHistoryIndex | 静的アーティファクト(indexerが生成・GitHub Releasesで公開、Parquet形式) | 実行のたびにブラウザ(DuckDB-WASM)が直接取得して読み込む圧縮対戦履歴 |
+| MatchHistoryIndex | 静的アーティファクト(indexerが生成、`published-index`ブランチへコミットし`raw.githubusercontent.com`経由で公開。Parquet形式) | 実行のたびにブラウザ(DuckDB-WASM)が直接取得して読み込む圧縮対戦履歴。大会ID→大会名の対応表(`tournamentDirectory`)は002フィーチャーで追加 |
 
 ---
 
@@ -100,7 +100,7 @@ AdjustedSeedResultの各エントリについて、配置決定の判断根拠�
 
 - `runId`
 - `position`: 調整後の位置
-- `comparedCandidates[]`: 比較した対戦相手候補ごとの `{ candidateUserId, candidateDisplayName, matchPointValue }`
+- `comparedCandidates[]`: 比較した対戦相手候補ごとの `{ candidateUserId, candidateDisplayName, matchPointValue, matches[] }`。`matches[]`(002フィーチャーで追加、詳細は[002/data-model.md](../002-result-decision-detail/data-model.md))は実際の対戦記録の一覧(`{ tournamentId, date, count }`)、0件なら対戦履歴なしを意味する
 - `decisionLogicType`: `best_left_player_based` | `seed_position_based` など、採用した判定ロジックの種別
 
 **保存先**: AdjustedSeedResultと同様(スプレッドシート + D1公開コピー)。
@@ -136,6 +136,7 @@ indexerが生成し、フロントエンド(ブラウザ、DuckDB-WASM)が実行
 
 - `generatedAt`: インデックス生成日時
 - `coveragePeriod`: インデックスに含まれる対戦履歴の期間(古すぎる対戦は近さ指標への寄与がほぼ0のため除外。research.md #2参照)
-- `pairIndex`: 選手ペア(数値ID`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants }`。Parquet形式(1行28バイトの整数のみ)で配布され、DuckDB-WASMがSQLクエリで参照する。実測調査(research.md #2)では、全期間・全地域(推定約145万試合)を対象としても圧縮後概ね1桁MB台〜十数MB程度と見積もられている
+- `pairIndex`: 選手ペア(数値ID`userIdA`, `userIdB`)をキーとした対戦記録一覧。各記録は `{ timestamp, numEntrants, tournamentId }`(`tournamentId`は002フィーチャーで追加)。Parquet形式で配布され、DuckDB-WASMがSQLクエリで参照する。実測調査(research.md #2)では、全期間・全地域(推定約145万試合)を対象としても圧縮後概ね1桁MB台〜十数MB程度と見積もられている
+- `tournamentDirectory`(002フィーチャーで追加): 大会ID→大会名の対応表。詳細は[002/data-model.md](../002-result-decision-detail/data-model.md)
 
 **更新方式**: indexerは前回処理済みの大会以降のみを増分走査し、`pairIndex`を再構築・再公開する。ブラウザは実行開始時に最新版を取得する。

@@ -44,12 +44,12 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   ```json
   {
     "adjustedEntries": [ { "displayName": "string", "adjustedPosition": 1, "originalPosition": 5, "adjustedWave": "string | null" } ],
-    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0 } ], "decisionLogicType": "string" } ],
+    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0, "matches": [ { "tournamentId": 0, "date": "YYYY-MM-DD", "count": 1 } ] } ], "decisionLogicType": "string" } ],
     "waveConstraintViolations": [ { "position": 3, "playerDisplayName": "string", "wave": "string", "allowedWaves": ["string"] } ],
     "preAdjustmentSnapshot": [ { "displayName": "string", "originalPosition": 1 } ] 
   }
   ```
-  `preAdjustmentSnapshot`は`inputSource = "startgg"`の場合のみ含む(FR-012c)。
+  `preAdjustmentSnapshot`は`inputSource = "startgg"`の場合のみ含む(FR-012c)。`comparedCandidates[].matches`は002フィーチャー(配置判断根拠の詳細確認)で追加、空配列は対戦履歴なしを意味する。
 - Response 200: `{ "runId": string, "status": "succeeded" }`
 
 ### `POST /runs/{runId}/fail`
@@ -91,7 +91,7 @@ start.gg入力の場合、運営者が確認画面で書き戻しを承認し、
     "inputSource": "google_sheets" | "startgg",
     "finishedAt": "ISO8601",
     "adjustedEntries": [ { "displayName": "string", "adjustedPosition": 1, "originalPosition": 5, "adjustedWave": "string | null" } ],
-    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0 } ], "decisionLogicType": "string" } ],
+    "decisionLog": [ { "position": 1, "comparedCandidates": [ { "candidateDisplayName": "string", "matchPointValue": 0.0, "matches": [ { "tournamentId": 0, "date": "YYYY-MM-DD", "count": 1 } ] } ], "decisionLogicType": "string" } ],
     "waveConstraintViolations": [ { "position": 3, "playerDisplayName": "string", "wave": "string", "allowedWaves": ["string"] } ],
     "preAdjustmentSnapshot": [ { "displayName": "string", "originalPosition": 1 } ]
   }
