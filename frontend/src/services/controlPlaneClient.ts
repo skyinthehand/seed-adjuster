@@ -85,8 +85,9 @@ export interface CompleteRunRequest {
   adjustedEntries: { displayName: string; adjustedPosition: number; originalPosition: number; adjustedWave: string | null }[];
   decisionLog: {
     position: number;
-    comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
+    comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[]; originalSeedPosition: number }[];
     decisionLogicType: string;
+    projectedOpponentDisplayName: string;
   }[];
   waveConstraintViolations: { position: number; playerDisplayName: string; wave: string; allowedWaves: string[] }[];
   preAdjustmentSnapshot?: { displayName: string; originalPosition: number }[] | null;
@@ -115,8 +116,9 @@ export interface AdjustedEntry {
 
 export interface DecisionLogEntry {
   position: number;
-  comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
+  comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[]; originalSeedPosition: number }[];
   decisionLogicType: string;
+  projectedOpponentDisplayName: string;
 }
 
 export interface WaveConstraintViolation {

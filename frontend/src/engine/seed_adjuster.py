@@ -176,6 +176,7 @@ def is_adjusted_seed(
                 player_name_for_log,
                 current_match_value,
                 [[m["timestamp"], m["tournamentId"]] for m in raw_matches],
+                adjusted_data[opponent_index].get("original_input_order"),
             ]
         )
         if adjusted_match_value <= TEMPORARY_INITIAL_MATCH_VALUE:
@@ -289,6 +290,7 @@ def get_least_match(
                 player_name_for_log,
                 current_match_value,
                 [[m["timestamp"], m["tournamentId"]] for m in raw_matches],
+                initial_data[current_index].get("original_input_order"),
             ]
         )
         if adjusted_match_value <= TEMPORARY_INITIAL_MATCH_VALUE or current_match_value < adjusted_match_value:

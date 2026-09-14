@@ -13,6 +13,15 @@ import { MATCH_INDEX_MANIFEST_URL } from "../config";
 // Public, unauthenticated results view (FR-012b, FR-015, FR-016). Deliberately does not
 // import Pyodide/DuckDB-WASM — viewing results requires no computation (research.md #1/#9).
 
+// Plain-Japanese explanations for decisionLogicType (seed_adjuster.py), shown via a "?"
+// tooltip next to the adopted logic's name.
+const DECISION_LOGIC_EXPLANATIONS: Record<string, string> = {
+  best_left_player_based:
+    "シード順で一番上の未配置選手を、対戦相手との近さに問題がないと判断してそのまま配置しました。",
+  seed_position_based:
+    "シード順そのままでは対戦相手と対戦履歴が近すぎたため、比較した候補の中から対戦履歴が最も薄い選手を選んで配置しました。",
+};
+
 export function ResultsPage() {
   const { runId } = useParams<{ runId: string }>();
   const [result, setResult] = useState<PublicResult | null>(null);
@@ -211,15 +220,39 @@ function PlacementDecisionModal({
             )}
             {log ? (
               <>
-                <p>採用された判定ロジック: {log.decisionLogicType}</p>
-                <h3>比較した対戦相手候補(近い順)</h3>
+                <p>
+                  想定対戦相手: <strong>{log.projectedOpponentDisplayName}</strong>
+                </p>
+                <p>
+                  採用された判定ロジック: {log.decisionLogicType}{" "}
+                  <span
+                    title={
+                      DECISION_LOGIC_EXPLANATIONS[log.decisionLogicType] ??
+                      "このロジックの説明は登録されていません。"
+                    }
+                    style={{
+                      display: "inline-block",
+                      cursor: "help",
+                      border: "1px solid currentColor",
+                      borderRadius: "50%",
+                      width: "1.2em",
+                      height: "1.2em",
+                      textAlign: "center",
+                      lineHeight: "1.2em",
+                      fontSize: "0.8em",
+                    }}
+                  >
+                    ?
+                  </span>
+                </p>
+                <h3>比較した対戦相手候補(元のシード値が高い順)</h3>
                 {log.comparedCandidates.length === 0 ? (
                   <p>比較対象の対戦相手候補はありませんでした。</p>
                 ) : (
                   <ul>
                     {log.comparedCandidates.map((c, i) => (
                       <li key={i}>
-                        {c.candidateDisplayName}(近さの指標値: {c.matchPointValue.toFixed(2)})
+                        {c.candidateDisplayName}(元のシード値: {c.originalSeedPosition}、近さの指標値: {c.matchPointValue.toFixed(2)})
                         <MatchList matches={c.matches} directory={directory} directoryStatus={directoryStatus} />
                       </li>
                     ))}

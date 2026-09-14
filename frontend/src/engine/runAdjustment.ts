@@ -107,16 +107,26 @@ interface ComparedCandidateMatch {
 
 interface DecisionLogEntry {
   position: number;
-  comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
+  comparedCandidates: {
+    candidateDisplayName: string;
+    matchPointValue: number;
+    matches: ComparedCandidateMatch[];
+    originalSeedPosition: number;
+  }[];
   decisionLogicType: string;
+  /** The bracket-mirror opponent this position is projected to face (calc_opponent_index in
+   * seed_adjuster.py) — the entrant seeded above this one whose seed is numerically closest.
+   * Was already computed and present in match_logs[i][1] but previously discarded here. */
+  projectedOpponentDisplayName: string;
 }
 
-// [opponentIndex, opponentUserId, name, matchPointValue, rawMatches] — see
-// is_adjusted_seed/get_least_match in seed_adjuster.py for where each chunk comes from.
+// [opponentIndex, opponentUserId, name, matchPointValue, rawMatches, originalSeedPosition] —
+// see is_adjusted_seed/get_least_match in seed_adjuster.py for where each chunk comes from.
 // rawMatches is `[[timestamp, tournamentId], ...]`, unaggregated (research.md R5); the
 // "same tournament+date -> 1 entry with a count" grouping (spec.md Clarifications) happens
-// below in aggregateMatches(), not in Python.
-const CANDIDATE_CHUNK_SIZE = 5;
+// below in aggregateMatches(), not in Python. originalSeedPosition is that candidate's
+// 1-indexed position in the original (pre-adjustment) seed order.
+const CANDIDATE_CHUNK_SIZE = 6;
 
 /** Unix seconds -> "YYYY-MM-DD" in JST, matching the JST-based ref_date handling elsewhere
  * in this codebase (seed_adjuster.py's get_midnight_jst_unixtime_from_str). */
@@ -152,24 +162,40 @@ function parseDecisionLog(matchLogs: unknown[][]): DecisionLogEntry[] {
   const entries: DecisionLogEntry[] = [];
   matchLogs.forEach((row, i) => {
     if (row.length === 0) return;
-    const [decisionLogicType, , , ...rest] = row as [string, string, string, ...unknown[]];
+    const [decisionLogicType, projectedOpponentDisplayName, , ...rest] = row as [
+      string,
+      string,
+      string,
+      ...unknown[],
+    ];
     const comparedCandidates: DecisionLogEntry["comparedCandidates"] = [];
     for (let j = 0; j + CANDIDATE_CHUNK_SIZE - 1 < rest.length; j += CANDIDATE_CHUNK_SIZE) {
       comparedCandidates.push({
         candidateDisplayName: String(rest[j + 2]),
         matchPointValue: Number(rest[j + 3]),
         matches: aggregateMatches(rest[j + 4]),
+        originalSeedPosition: Number(rest[j + 5]),
       });
     }
-    entries.push({ position: i + 1, comparedCandidates, decisionLogicType: String(decisionLogicType) });
+    // "元のシード値が高い順" (UI label): sorted by originalSeedPosition descending — starting
+    // from the candidate whose original seed was numerically highest (the weakest original
+    // seed among those compared) down to the lowest (closest to seed 1).
+    comparedCandidates.sort((a, b) => b.originalSeedPosition - a.originalSeedPosition);
+    entries.push({
+      position: i + 1,
+      comparedCandidates,
+      decisionLogicType: String(decisionLogicType),
+      projectedOpponentDisplayName: String(projectedOpponentDisplayName),
+    });
   });
   return entries;
 }
 
 /**
  * The audit spreadsheet only ever showed [idx, userId, name, value] per candidate
- * (buildResultMatrix predates matches[]) — strip the 5th (rawMatches) element per chunk so
- * the spreadsheet output is unchanged rather than gaining a stringified array column.
+ * (buildResultMatrix predates matches[]/originalSeedPosition) — strip the 5th/6th
+ * (rawMatches/originalSeedPosition) elements per chunk so the spreadsheet output is
+ * unchanged rather than gaining stringified extra columns.
  */
 function spreadsheetMatchLogRow(row: unknown[]): unknown[] {
   if (row.length === 0) return [];
