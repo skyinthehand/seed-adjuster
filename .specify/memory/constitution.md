@@ -1,50 +1,37 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: (none, template unfilled) → 1.0.0
+- Modified principles: (none — initial ratification)
+- Added principles:
+  - I. 日本語での運用 (Japanese-language operation)
+- Removed sections:
+  - Principle slots II–V, Section 2, Section 3 — the template's placeholder slots for these
+    were dropped rather than filled with invented content, per explicit user instruction not
+    to fabricate principles the project hasn't actually adopted. They can be reintroduced in a
+    future amendment (MINOR bump) if/when real principles are agreed on.
+- Follow-up TODOs: none
+-->
+
+# 対戦相手シード調整ツール Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. 日本語での運用
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+このプロジェクトに関するClaudeとのやり取りは、明確な指示がない限り必ず日本語で行わなければ
+ならない(MUST)。プロジェクトの各種ドキュメント(`spec.md`、`plan.md`、`tasks.md`、
+`README.md`等)およびgitのコミットメッセージも同様に日本語で記述する。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
-
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
-
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
-
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Rationale**: プロジェクト所有者は日本語話者であり、既存のspec/plan/tasksドキュメント一式も
+すべて日本語で書かれている。これは既存の運用実態を明文化したものであり、Spec Kitの各コマンド
+(`/speckit-specify`、`/speckit-plan`等)が新しい文書を生成・更新する際にも、言語を統一する
+拠り所として機能する。
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+この憲章はプロジェクトのすべての実践に優先する。改正には、変更内容をこのファイルへ反映し、
+上記のSync Impact Reportを更新することが必要。原則の追加・実質的な拡張はMINORバージョンを、
+既存原則の後方互換性のない削除・再定義はMAJORバージョンを、文言修正等の非本質的な変更は
+PATCHバージョンを、それぞれ増加させる。
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-09-14
