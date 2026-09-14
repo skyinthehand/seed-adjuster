@@ -40,7 +40,7 @@ spec.mdのAssumptions・Clarificationsで方針が固まっている点は再掲
 
 ## R5. 判断根拠ログのデータフロー拡張
 
-**Decision**: `frontend/src/engine/seed_adjuster.py`の`match_log`(比較候補ごとの記録)に、既存の集約値(`match_point`)に加えて、個々の対戦記録(`timestamp`, `tournament_id`)のリストを持たせる。これは`matchLookup`(`frontend/src/data/matchIndex.ts`がDuckDB-WASM経由で既に取得している生の対戦記録一覧)をそのままPython側へ渡せば実現でき、対戦履歴インデックスへのクエリ方法自体(DuckDB-WASMのSQL)は変更不要。`tournamentId`列をSELECT対象に追加するだけでよい。
+**Decision**: `frontend/src/engine/seed_adjuster.py`の`match_log`(比較候補ごとの記録)に、既存の集約値(`match_point`)に加えて、個々の対戦記録(`timestamp`, `tournament_id`)のリストを**集約せずそのまま**持たせる。これは`matchLookup`(`frontend/src/data/matchIndex.ts`がDuckDB-WASM経由で既に取得している生の対戦記録一覧)をそのままPython側へ渡せば実現でき、対戦履歴インデックスへのクエリ方法自体(DuckDB-WASMのSQL)は変更不要。`tournamentId`列をSELECT対象に追加するだけでよい。「同じ大会・同じ日付の対戦をまとめて1件・件数併記にする」集約(spec.md Clarifications)は、Python側ではなく`frontend/src/engine/runAdjustment.ts`の`parseDecisionLog()`(TypeScript側)が担う。
 
 **Rationale**: 近さの指標値(`match_point`)を算出する計算自体は既存のまま変更せず(spec.md Assumptions)、算出の元になった生データをログとして残すだけなので、アルゴリズムのロジックに影響を与えない。
 

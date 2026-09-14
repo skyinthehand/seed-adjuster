@@ -37,7 +37,7 @@ description: "Task list for 選手別の配置判断根拠の詳細確認"
 
 ### Implementation for User Story 1
 
-- [ ] T001 [US1] `frontend/src/pages/ResultsPage.tsx`: 調整前後のシード比較表の各選手行に「詳細」ボタンを追加し、選択中の選手の`adjustedPosition`を保持する状態と、それに連動して開閉する`<dialog>`要素を実装する(FR-001)
+- [ ] T001 [US1] `frontend/src/pages/ResultsPage.tsx`: 調整前後のシード比較表の各選手行に「詳細」ボタンを追加し、選択中の選手の`adjustedPosition`を保持する状態と、それに連動して開閉する`<dialog>`要素を実装する。この時点で、モーダル内を「閉じるボタン等の操作要素を含む固定領域」と「内容を表示するスクロール可能な領域」に分けたレイアウトにしておく(User Story 2のT017で内容領域に非同期差し替えが入っても手戻りにならないよう、先回りしておく。FR-001, FR-008)
 - [ ] T002 [US1] `frontend/src/pages/ResultsPage.tsx`: モーダル内に、選択中の選手の元の順位(`originalPosition`)・比較した対戦相手候補一覧(近い順、`candidateDisplayName`と`matchPointValue`)・採用された`decisionLogicType`・調整後の最終順位(`adjustedPosition`)を表示する(既存の`result.decisionLog`を`position`でlookup。FR-002)
 - [ ] T003 [US1] `frontend/src/pages/ResultsPage.tsx`: 比較対象の対戦相手候補が0件の選手について、「比較対象なし」である旨を表示する分岐を実装する(エラーにはしない。spec.md User Story 1 Acceptance Scenario 3)
 - [ ] T004 [US1] `frontend/src/pages/ResultsPage.tsx`: Wave希望により通常の判定ロジックが無視された選手について、モーダル内にその旨を明示する分岐を実装する(既存の`result.waveConstraintViolations`を`position`でlookup。FR-006)
@@ -60,13 +60,13 @@ description: "Task list for 選手別の配置判断根拠の詳細確認"
 - [ ] T008 [P] [US2] `.github/workflows/indexer.yml`: `dist/tournaments.json`も`dist/match-index.parquet`/`dist/manifest.json`と一緒に`published-index`ブランチへforce pushで公開するよう更新する
 - [ ] T009 [P] [US2] `frontend/src/data/matchIndex.ts`: DuckDB-WASMのSELECT文に`tournamentId`列を追加し、Pyodideへ渡す`matchLookup`の各対戦記録に`tournamentId`を含める
 - [ ] T010 [US2] `frontend/src/data/matchIndex.ts`: `tournaments.json`を取得しブラウザの`Cache API`でキャッシュする関数を追加する(取得失敗時は呼び出し元がその旨を扱えるようにnull/エラーを返す設計。research.md R1, R4、contracts/tournament-directory.md)(T009と同ファイルのため逐次実装)
-- [ ] T011 [US2] `frontend/src/engine/seed_adjuster.py`: `match_log`に、比較した対戦相手候補ごとの個々の対戦記録(`timestamp`, `tournament_id`)を保持させ、同じ大会・同じ日付の対戦はまとめて1件・件数併記にする集約ロジックを実装する(近さの指標値の算出ロジック自体は変更しない。research.md R5、spec.md Clarifications)
+- [ ] T011 [US2] `frontend/src/engine/seed_adjuster.py`: `match_log`に、比較した対戦相手候補ごとの**個々の**対戦記録(`timestamp`, `tournament_id`)をそのまま(集約せず)保持させる。近さの指標値の算出ロジック自体は変更しない(research.md R5)
 - [ ] T012 [US2] `frontend/src/engine/pyodideRuntime.ts`: `AdjustedResult`/`match_logs`の型を拡張し、T011で追加した個々の対戦記録を保持できるようにする
-- [ ] T013 [US2] `frontend/src/engine/runAdjustment.ts`: `parseDecisionLog()`を拡張し、比較候補ごとの`matches[]`(`{ tournamentId, date, count }`)を組み立てて`decisionLog`に含める(contracts/tournament-directory.md参照)
+- [ ] T013 [US2] `frontend/src/engine/runAdjustment.ts`: `parseDecisionLog()`を拡張し、T011/T012で渡ってくる個々の対戦記録から、**同じ大会・同じ日付の対戦をまとめて1件・件数併記にする集約ロジックをここで実装し**、比較候補ごとの`matches[]`(`{ tournamentId, date, count }`)を組み立てて`decisionLog`に含める(集約はPython側では行わない。contracts/tournament-directory.md参照)
 - [ ] T014 [P] [US2] `frontend/src/services/controlPlaneClient.ts`: `DecisionLogEntry`の`comparedCandidates`型に`matches[]`(`{ tournamentId: number, date: string, count: number }`)を追加する
 - [ ] T015 [US2] `frontend/src/pages/ResultsPage.tsx`: モーダル内の対戦相手候補ごとに、T010の対応表を使って大会名を解決し、対戦日時・件数とあわせて表示する。対戦記録が0件の候補には「対戦履歴なし」を表示する(FR-003)
 - [ ] T016 [US2] `frontend/src/pages/ResultsPage.tsx`: `tournaments.json`の取得が完了するまで大会名欄を「読み込み中」の一時表示にし、取得完了後に差し替える。取得失敗時は大会名が不明である旨を表示し、他の情報の表示は妨げない(FR-004, SC-004)
-- [ ] T017 [US2] `frontend/src/pages/ResultsPage.tsx`: モーダルを「閉じるボタン等の操作要素を含む固定領域」と「対戦相手候補一覧を表示するスクロール可能な内容領域」に分離し、T016の大会名差し替えで操作要素の位置がずれないようにする(FR-008、research.md R3)
+- [ ] T017 [US2] `frontend/src/pages/ResultsPage.tsx`: T001で用意した固定領域/スクロール可能な内容領域のレイアウトに沿って対戦相手候補一覧を内容領域内に配置し、T016の大会名差し替えで操作要素の位置がずれないことを確認する(FR-008、research.md R3)
 
 **Checkpoint**: User Stories 1 and 2 both work independently。
 
