@@ -59,7 +59,11 @@ export async function loadMatchLookup(
 
   const duckdb = await import("@duckdb/duckdb-wasm");
   const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-  const worker = new Worker(bundle.mainWorker!);
+  // new Worker(bundle.mainWorker) fails browsers' same-origin check for Worker scripts even
+  // though jsDelivr serves the script with CORS headers — Worker construction requires the
+  // script itself to be same-origin, CORS headers don't satisfy that. duckdb.createWorker()
+  // fetches the script and instantiates the Worker from a same-origin Blob URL instead.
+  const worker = await duckdb.createWorker(bundle.mainWorker!);
   const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
   const db = new duckdb.AsyncDuckDB(logger, worker);
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
