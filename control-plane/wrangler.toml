@@ -14,4 +14,4 @@ database_id = "1ebc3832-7083-4363-acb3-50a66da3f47f"
 [vars]
 # CORS allow-list for the GitHub Pages origin. Override per-environment via `wrangler.toml` env sections
 # or `wrangler secret`/`vars` at deploy time.
-ALLOWED_ORIGIN = "https://skyinthehand.github.io/seed-adjuster/"
+ALLOWED_ORIGIN = "https://skyinthehand.github.io"
