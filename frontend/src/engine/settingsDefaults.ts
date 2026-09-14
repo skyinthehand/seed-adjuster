@@ -1,40 +1,29 @@
-// FR-018: derive recommended AdjustmentSettings defaults from a small set of Yes/No
-// questions, for organizers who don't want to tune the underlying parameters directly.
+// FR-018: derive recommended AdjustmentSettings defaults from a small set of direct
+// questions, for organizers who don't want to tune the underlying parameters by name.
 
 import { getSettings } from "../services/controlPlaneClient";
 
+export type SmallTournamentExclusion = "none" | "all" | "topSeedsOnly";
+
 export interface WizardAnswers {
-  protectTopSeeds: boolean;
-  ignoreSmallTournamentHistory: boolean;
-  thoroughSearch: boolean;
+  /** ①シード何位までは調整せず固定とするか */
+  fixedSeedNum: number;
+  /** ②小規模大会での対戦経験を、誰について考慮外とするか */
+  smallTournamentExclusion: SmallTournamentExclusion;
+  /** ③(②が"none"以外のときのみ意味を持つ)何人participant未満を小規模大会とするか */
+  smallTournamentMaxEntrants: number;
+  /** ④(②が"topSeedsOnly"のときのみ意味を持つ)シード何位まで対象とするか */
+  smallTournamentTopSeedLimit: number;
+  /** ⑤対戦相手候補の探索幅の倍率 */
+  searchBreadthMultiplier: number;
 }
 
-export const WIZARD_QUESTIONS: {
-  key: keyof WizardAnswers;
-  label: string;
-  help: string;
-}[] = [
-  {
-    key: "protectTopSeeds",
-    label: "上位シード(既存のシード1〜4位)は調整の対象から外し、そのまま固定しますか？",
-    help: "はい: 上位4シードを動かさず、5位以降のみ対戦相手の履歴に基づいて調整します。",
-  },
-  {
-    key: "ignoreSmallTournamentHistory",
-    label: "参加者数の少ない小規模大会での対戦履歴は、参考にしないようにしますか？",
-    help: "はい: 参加者16人未満の大会での対戦は、シード調整の判断材料から除外します。",
-  },
-  {
-    key: "thoroughSearch",
-    label: "対戦相手候補の探索を広めに行いますか？(大会規模が大きい場合、処理時間が延びる可能性があります)",
-    help: "はい: より多くの候補を比較してから配置を決定します。いいえ: 標準的な探索幅で高速に処理します。",
-  },
-];
-
 export const DEFAULT_WIZARD_ANSWERS: WizardAnswers = {
-  protectTopSeeds: true,
-  ignoreSmallTournamentHistory: true,
-  thoroughSearch: false,
+  fixedSeedNum: 4,
+  smallTournamentExclusion: "all",
+  smallTournamentMaxEntrants: 16,
+  smallTournamentTopSeedLimit: 8,
+  searchBreadthMultiplier: 1,
 };
 
 /** Recommended parameter values for the underlying algorithm, keyed by name (research.md #9 / spec.md Assumptions). */
@@ -97,13 +86,17 @@ export async function resolveEffectiveSettings(targetId: string): Promise<Effect
   };
 }
 
+// Sentinel matching the original notebook's convention: larger than any realistic seed
+// count, so "apply to everyone" can be expressed as "apply up to this seed position".
+const UNLIMITED_SEED_NUM = 9999;
+
 export function resolveDefaults(answers: WizardAnswers): ResolvedDefaults {
+  const exclusion = answers.smallTournamentExclusion;
   return {
-    fixed_seed_num: answers.protectTopSeeds ? 4 : 0,
-    conditional_least_num_entrants: answers.ignoreSmallTournamentHistory ? 16 : 0,
-    // Only meaningful when conditional_least_num_entrants > 0; applies the filter across
-    // all non-fixed seeds when history quality matters, otherwise it's a no-op.
-    apply_conditional_least_num_entrants_seed_num: answers.ignoreSmallTournamentHistory ? 9999 : 0,
-    search_breadth_multiplier: answers.thoroughSearch ? 2 : 1,
+    fixed_seed_num: answers.fixedSeedNum,
+    conditional_least_num_entrants: exclusion === "none" ? 0 : answers.smallTournamentMaxEntrants,
+    apply_conditional_least_num_entrants_seed_num:
+      exclusion === "none" ? 0 : exclusion === "all" ? UNLIMITED_SEED_NUM : answers.smallTournamentTopSeedLimit,
+    search_breadth_multiplier: answers.searchBreadthMultiplier,
   };
 }

@@ -3,12 +3,7 @@ import { connectGoogleAccount, isGoogleConnected, preloadGoogleIdentityServices 
 import { saveStartggToken, isStartggConnected } from "../integrations/startgg";
 import { GOOGLE_OAUTH_CLIENT_ID } from "../config";
 import { getSettings, putSettings, type AdjustmentSettings } from "../services/controlPlaneClient";
-import {
-  WIZARD_QUESTIONS,
-  DEFAULT_WIZARD_ANSWERS,
-  resolveDefaults,
-  type WizardAnswers,
-} from "../engine/settingsDefaults";
+import { DEFAULT_WIZARD_ANSWERS, resolveDefaults, type WizardAnswers } from "../engine/settingsDefaults";
 
 export function SettingsPage() {
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
@@ -171,8 +166,8 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
     <section>
       <h2>シード調整パラメータの設定</h2>
       <p>
-        対象(スプレッドシートIDとワークシート名、または<code>startgg:フェーズID</code>)ごとにYes/No質問へ回答すると、
-        推奨既定値一式が自動的に設定されます(FR-018)。個別のパラメータを直接入力すると、その値がYes/No回答による既定値より優先されます(FR-019)。
+        対象(スプレッドシートIDとワークシート名、または<code>startgg:フェーズID</code>)ごとに以下の質問へ回答すると、
+        推奨既定値一式が自動的に設定されます(FR-018)。個別のパラメータを直接入力すると、その値がここでの回答による既定値より優先されます(FR-019)。
       </p>
       <div>
         <label htmlFor="settingsTargetId">対象ID(実行ページの入力と同じ形式)</label>
@@ -190,24 +185,97 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
       {loaded && (
         <>
           <fieldset>
-            <legend>Yes/No質問</legend>
-            {WIZARD_QUESTIONS.map((q) => (
-              <div key={q.key}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={answers[q.key]}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.checked }))}
-                  />
-                  {q.label}
+            <legend>基本パラメータ</legend>
+
+            <div>
+              <label htmlFor="q1_fixedSeedNum">① シード何位までは調整せず固定としますか？</label>
+              <input
+                id="q1_fixedSeedNum"
+                type="number"
+                value={answers.fixedSeedNum}
+                onChange={(e) => setAnswers((prev) => ({ ...prev, fixedSeedNum: Number(e.target.value) }))}
+              />
+            </div>
+
+            <fieldset>
+              <legend>② 上位シード(もしくは全員)で小規模な大会での対戦経験は考慮外としますか？</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="smallTournamentExclusion"
+                  checked={answers.smallTournamentExclusion === "none"}
+                  onChange={() => setAnswers((prev) => ({ ...prev, smallTournamentExclusion: "none" }))}
+                />
+                考慮外にしない
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="smallTournamentExclusion"
+                  checked={answers.smallTournamentExclusion === "all"}
+                  onChange={() => setAnswers((prev) => ({ ...prev, smallTournamentExclusion: "all" }))}
+                />
+                全員考慮外にする
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="smallTournamentExclusion"
+                  checked={answers.smallTournamentExclusion === "topSeedsOnly"}
+                  onChange={() => setAnswers((prev) => ({ ...prev, smallTournamentExclusion: "topSeedsOnly" }))}
+                />
+                上位シードは考慮外とする
+              </label>
+            </fieldset>
+
+            {answers.smallTournamentExclusion !== "none" && (
+              <div>
+                <label htmlFor="q3_smallTournamentMaxEntrants">
+                  ③ 参加者何人までの大会を小規模な大会としますか？
                 </label>
-                <p>{q.help}</p>
+                <input
+                  id="q3_smallTournamentMaxEntrants"
+                  type="number"
+                  value={answers.smallTournamentMaxEntrants}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, smallTournamentMaxEntrants: Number(e.target.value) }))
+                  }
+                />
               </div>
-            ))}
+            )}
+
+            {answers.smallTournamentExclusion === "topSeedsOnly" && (
+              <div>
+                <label htmlFor="q4_smallTournamentTopSeedLimit">
+                  ④ シード何位までは小規模な大会での対戦経験を考慮外にしますか？
+                </label>
+                <input
+                  id="q4_smallTournamentTopSeedLimit"
+                  type="number"
+                  value={answers.smallTournamentTopSeedLimit}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, smallTournamentTopSeedLimit: Number(e.target.value) }))
+                  }
+                />
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="q5_searchBreadthMultiplier">⑤ 対戦相手候補の探索を何倍広めに行いますか？</label>
+              <input
+                id="q5_searchBreadthMultiplier"
+                type="number"
+                value={answers.searchBreadthMultiplier}
+                onChange={(e) =>
+                  setAnswers((prev) => ({ ...prev, searchBreadthMultiplier: Number(e.target.value) }))
+                }
+              />
+              <p>大きくすると元のシード値からのズレが大きくなりすぎる場合があります。</p>
+            </div>
           </fieldset>
 
           <fieldset>
-            <legend>推奨既定値(Yes/No回答から自動導出)</legend>
+            <legend>推奨既定値(①〜⑤の回答から算出)</legend>
             <ul>
               {OVERRIDE_PARAM_NAMES.map((name) => (
                 <li key={name}>
