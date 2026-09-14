@@ -6,7 +6,7 @@
 
 - **`frontend/`**: React + TypeScript + Vite。GitHub Pagesにホストする静的サイト。シード自動調整の計算そのもの(Pyodide)と対戦履歴の検索(DuckDB-WASM)は、すべて**ブラウザ内**で完結する。サーバー側の可変コンピュートは一切使わない(research.md #0/#1)。
 - **`control-plane/`**: Cloudflare Workers + D1。実行記録・パラメータ設定・公開結果キャッシュの記録のみを担う薄い層。計算は行わない。Free Planのみで運用し、超過時は課金ではなくエラーで失敗する設計(research.md #0/#3)。
-- **`indexer/`**: Python。`skyinthehand/smash_database` から対戦履歴を集約し、コンパクトなParquet形式の索引(MatchHistoryIndex)を生成する。GitHub Actionsで定期実行し、GitHub Releasesに成果物を公開する(research.md #2)。
+- **`indexer/`**: Python。`skyinthehand/smash_database` をクローンして対戦履歴を集約し、コンパクトなParquet形式の索引(MatchHistoryIndex)を生成する。GitHub Actionsで定期実行し、`published-index`ブランチに成果物を公開する(research.md #2)。
 
 **大原則**: どのコンポーネントにも支払い手段を一切登録しない状態で運用できることを前提に設計している(research.md #0)。デプロイ手順の中で課金を有効化する操作は絶対に行わないこと。
 
@@ -40,9 +40,9 @@ npm run deploy
 
 ### 2. indexer(GitHub Actions)
 
-追加の手動セットアップは不要。このリポジトリを公開リポジトリとしてGitHubにpushすれば、`.github/workflows/indexer.yml` が毎日定期実行され、`match-index-*` タグと `latest-index` エイリアスのGitHub Releaseとして索引(Parquet + manifest.json)を自動公開する。初回は「Actions」タブから `workflow_dispatch` で手動実行して即座に索引を生成してもよい。
+追加の手動セットアップは不要。このリポジトリを公開リポジトリとしてGitHubにpushすれば、`.github/workflows/indexer.yml` が毎日定期実行され、`skyinthehand/smash_database`を丸ごとクローンした上で索引(Parquet + manifest.json + tournaments.json)を生成し、専用ブランチ`published-index`へforce pushで公開する(`raw.githubusercontent.com`経由、CORS対応。GitHub Releasesのアセットは試したがCORS非対応と判明したため不採用)。初回は「Actions」タブから `workflow_dispatch` で手動実行して即座に索引を生成してもよい。
 
-`frontend/src/config.ts` の `MATCH_INDEX_MANIFEST_URL` のフォールバック値にある `REPLACE_WITH_ORG/REPLACE_WITH_REPO` を、実際のリポジトリのorg/repo名に書き換えること(またはフロントエンドのビルド時に `VITE_MATCH_INDEX_MANIFEST_URL` を明示的に設定してもよい)。
+`frontend/src/config.ts` の `MATCH_INDEX_MANIFEST_URL` のフォールバック値は`skyinthehand/seed-adjuster`のpublished-indexブランチを指すようになっている。フォークして使う場合は、実際のリポジトリのorg/repo名に書き換えること(またはフロントエンドのビルド時に `VITE_MATCH_INDEX_MANIFEST_URL` を明示的に設定してもよい)。
 
 ### 3. Google OAuthクライアントの登録
 
@@ -76,10 +76,11 @@ npm install
 npm run db:migrate:local
 npm run dev  # wrangler dev --local、ローカルD1を使用
 
-# indexer
+# indexer(smash_databaseのローカルクローンが必要。約2.3GB)
+git clone --depth 1 https://github.com/skyinthehand/smash_database.git /tmp/smash_database
 cd indexer
 pip install -e ".[dev]"
-python -m src.build_index --out-dir dist
+python -m src.build_index --out-dir dist --smash-database-dir /tmp/smash_database
 ```
 
 ### アルゴリズムの実行速度ベンチマーク

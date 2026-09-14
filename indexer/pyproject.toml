@@ -5,7 +5,6 @@ description = "Builds the compact match-history Parquet index from smash_databas
 requires-python = ">=3.12"
 dependencies = [
     "pyarrow>=17.0.0",
-    "requests>=2.32.0",
 ]
 
 [project.optional-dependencies]

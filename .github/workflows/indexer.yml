@@ -19,11 +19,21 @@ jobs:
         working-directory: indexer
     steps:
       - uses: actions/checkout@v4
+      # Cloned once as a single bulk operation instead of ~47,000 individual per-event HTTP
+      # requests — that per-event approach let large events silently vanish from the index on
+      # transient timeouts (see build_index.py module docstring for the incident that led to
+      # this). Shallow clone: ~2.3GB working tree, ~30s, well within a public-repo runner's
+      # disk/time budget.
+      - uses: actions/checkout@v4
+        with:
+          repository: skyinthehand/smash_database
+          path: smash_database
+          fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install .
-      - run: python -m src.build_index --out-dir dist
+      - run: python -m src.build_index --out-dir dist --smash-database-dir ../smash_database
       - name: Publish index to the published-index branch
         env:
           # GitHub Releases assets don't support CORS (no Access-Control-Allow-Origin on
