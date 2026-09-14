@@ -4,7 +4,7 @@ import { runGoogleSheetsAdjustment, runStartggAdjustment } from "../engine/runAd
 import { resolveEffectiveSettings } from "../engine/settingsDefaults";
 import { isGoogleConnected } from "../integrations/googleAuth";
 import { isStartggConnected } from "../integrations/startgg";
-import { createSpreadsheet } from "../integrations/googleSheets";
+import { createSpreadsheet, extractSpreadsheetId } from "../integrations/googleSheets";
 
 type Phase = "idle" | "reading" | "computing" | "writing" | "done" | "error";
 type InputSource = "google_sheets" | "startgg";
@@ -115,11 +115,11 @@ export function RunPage() {
         {inputSource === "google_sheets" ? (
           <div>
             <div>
-              <label htmlFor="spreadsheetId">スプレッドシートID</label>
+              <label htmlFor="spreadsheetId">スプレッドシートID(もしくはスプレッドシートURL)</label>
               <input
                 id="spreadsheetId"
                 value={spreadsheetId}
-                onChange={(e) => setSpreadsheetId(e.target.value)}
+                onChange={(e) => setSpreadsheetId(extractSpreadsheetId(e.target.value))}
                 required
                 disabled={isRunning}
               />
@@ -142,11 +142,11 @@ export function RunPage() {
               <input id="phaseId" value={phaseId} onChange={(e) => setPhaseId(e.target.value)} required disabled={isRunning} />
             </div>
             <div>
-              <label htmlFor="auditSpreadsheetId">監査ログ保存用スプレッドシートID(任意)</label>
+              <label htmlFor="auditSpreadsheetId">監査ログ保存用スプレッドシートID(もしくはスプレッドシートURL、任意)</label>
               <input
                 id="auditSpreadsheetId"
                 value={auditSpreadsheetId}
-                onChange={(e) => setAuditSpreadsheetId(e.target.value)}
+                onChange={(e) => setAuditSpreadsheetId(extractSpreadsheetId(e.target.value))}
                 disabled={isRunning || autoCreateAudit}
               />
             </div>

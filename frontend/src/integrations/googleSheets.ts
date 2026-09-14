@@ -7,6 +7,13 @@ import { getGoogleAccessToken, clearGoogleAccessToken } from "./googleAuth";
 
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
+/** Accepts either a bare spreadsheet ID or a full Google Sheets URL and returns the ID. */
+export function extractSpreadsheetId(input: string): string {
+  const trimmed = input.trim();
+  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : trimmed;
+}
+
 export class GoogleSheetsError extends Error {
   constructor(
     public readonly status: number,
