@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { runGoogleSheetsAdjustment, runStartggAdjustment } from "../engine/runAdjustment";
 import { resolveEffectiveSettings } from "../engine/settingsDefaults";
@@ -9,16 +9,54 @@ import { createSpreadsheet, extractSpreadsheetId } from "../integrations/googleS
 type Phase = "idle" | "reading" | "computing" | "writing" | "done" | "error";
 type InputSource = "google_sheets" | "startgg";
 
+// Persists the form fields (not `phase`/`errorMessage`, which are run-in-progress state) across
+// navigating away and back — e.g. to the settings page — since RunPage unmounts on route change.
+const DRAFT_STORAGE_KEY = "runPageDraft";
+
+interface RunPageDraft {
+  inputSource: InputSource;
+  spreadsheetId: string;
+  worksheetName: string;
+  phaseId: string;
+  auditSpreadsheetId: string;
+  autoCreateAudit: boolean;
+}
+
+function loadDraft(): RunPageDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as RunPageDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function RunPage() {
   const navigate = useNavigate();
-  const [inputSource, setInputSource] = useState<InputSource>("google_sheets");
-  const [spreadsheetId, setSpreadsheetId] = useState("");
-  const [worksheetName, setWorksheetName] = useState("");
-  const [phaseId, setPhaseId] = useState("");
-  const [auditSpreadsheetId, setAuditSpreadsheetId] = useState("");
-  const [autoCreateAudit, setAutoCreateAudit] = useState(false);
+  const [inputSource, setInputSource] = useState<InputSource>(() => loadDraft()?.inputSource ?? "google_sheets");
+  const [spreadsheetId, setSpreadsheetId] = useState(() => loadDraft()?.spreadsheetId ?? "");
+  const [worksheetName, setWorksheetName] = useState(() => loadDraft()?.worksheetName ?? "");
+  const [phaseId, setPhaseId] = useState(() => loadDraft()?.phaseId ?? "");
+  const [auditSpreadsheetId, setAuditSpreadsheetId] = useState(() => loadDraft()?.auditSpreadsheetId ?? "");
+  const [autoCreateAudit, setAutoCreateAudit] = useState(() => loadDraft()?.autoCreateAudit ?? false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const draft: RunPageDraft = {
+      inputSource,
+      spreadsheetId,
+      worksheetName,
+      phaseId,
+      auditSpreadsheetId,
+      autoCreateAudit,
+    };
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // Best-effort only (e.g. private browsing may disable localStorage).
+    }
+  }, [inputSource, spreadsheetId, worksheetName, phaseId, auditSpreadsheetId, autoCreateAudit]);
 
   const isRunning = phase === "reading" || phase === "computing" || phase === "writing";
 
