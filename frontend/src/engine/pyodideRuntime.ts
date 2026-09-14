@@ -12,8 +12,13 @@ let pyodidePromise: Promise<PyodideInterface> | null = null;
 async function getPyodide(): Promise<PyodideInterface> {
   if (!pyodidePromise) {
     pyodidePromise = (async () => {
-      const { loadPyodide } = await import("pyodide");
-      const pyodide = await loadPyodide();
+      const { loadPyodide, version } = await import("pyodide");
+      // Without an explicit indexURL, Pyodide guesses it from where its own JS module was
+      // loaded from — but Vite bundles that JS into dist/assets/ without also copying
+      // Pyodide's data files (pyodide.asm.wasm, python_stdlib.zip, pyodide-lock.json) there,
+      // so the guessed URL 404s. Load those from jsDelivr's CDN instead (CORS-enabled),
+      // pinned to the exact version bundled here so the JS shim and data files match.
+      const pyodide = await loadPyodide({ indexURL: `https://cdn.jsdelivr.net/pyodide/v${version}/full/` });
       pyodide.FS.writeFile("/seed_adjuster.py", seedAdjusterSource);
       await pyodide.runPythonAsync(`
 import sys
