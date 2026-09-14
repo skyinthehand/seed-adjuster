@@ -39,6 +39,7 @@ jobs:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
           VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
           VITE_CONTROL_PLANE_API_BASE_URL: ${{ vars.CONTROL_PLANE_API_BASE_URL }}
+          VITE_MATCH_INDEX_MANIFEST_URL: https://github.com/${{ github.repository }}/releases/download/latest-index/manifest.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
