@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { runGoogleSheetsAdjustment, runStartggAdjustment } from "../engine/runAdjustment";
-import { resolveEffectiveSettings } from "../engine/settingsDefaults";
+import { resolveEffectiveSettings, type EffectiveSettings } from "../engine/settingsDefaults";
 import { isGoogleConnected } from "../integrations/googleAuth";
 import { isStartggConnected } from "../integrations/startgg";
 import { createSpreadsheet, extractSpreadsheetId } from "../integrations/googleSheets";
@@ -31,6 +31,11 @@ function loadDraft(): RunPageDraft | null {
   }
 }
 
+interface PendingConfirmation {
+  targetId: string;
+  settings: EffectiveSettings;
+}
+
 export function RunPage() {
   const navigate = useNavigate();
   const [inputSource, setInputSource] = useState<InputSource>(() => loadDraft()?.inputSource ?? "google_sheets");
@@ -41,6 +46,11 @@ export function RunPage() {
   const [autoCreateAudit, setAutoCreateAudit] = useState(() => loadDraft()?.autoCreateAudit ?? false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Set once the user submits the form; cleared on cancel or once the confirmed run starts.
+  // Showing the resolved effective settings before running catches cases where the intended
+  // overrides silently didn't apply (e.g. a targetId mismatch between this page and the
+  // settings page) before time is spent on a run using the wrong parameters.
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
 
   useEffect(() => {
     const draft: RunPageDraft = {
@@ -71,20 +81,24 @@ export function RunPage() {
       return;
     }
     setErrorMessage(null);
+    const targetId = inputSource === "google_sheets" ? `${spreadsheetId}:${worksheetName}` : `startgg:${phaseId}`;
+    try {
+      const settings = await resolveEffectiveSettings(targetId);
+      setPendingConfirmation({ targetId, settings });
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const executeRun = async () => {
+    if (!pendingConfirmation) return;
+    const { targetId, settings } = pendingConfirmation;
+    setPendingConfirmation(null);
     setPhase("reading");
     try {
       let runId: string;
       if (inputSource === "google_sheets") {
-        const targetId = `${spreadsheetId}:${worksheetName}`;
-        ({ runId } = await runGoogleSheetsAdjustment(
-          {
-            targetId,
-            spreadsheetId,
-            worksheetName,
-            settings: await resolveEffectiveSettings(targetId),
-          },
-          setPhase,
-        ));
+        ({ runId } = await runGoogleSheetsAdjustment({ targetId, spreadsheetId, worksheetName, settings }, setPhase));
       } else {
         // FR-012a: Startgg入力は監査ログ用スプレッドシートが必須。未入力なら自動作成する。
         let resolvedAuditSpreadsheetId = auditSpreadsheetId;
@@ -99,14 +113,8 @@ export function RunPage() {
           setPhase("idle");
           return;
         }
-        const startggTargetId = `startgg:${phaseId}`;
         const startggResult = await runStartggAdjustment(
-          {
-            targetId: startggTargetId,
-            phaseId,
-            auditSpreadsheetId: resolvedAuditSpreadsheetId,
-            settings: await resolveEffectiveSettings(startggTargetId),
-          },
+          { targetId, phaseId, auditSpreadsheetId: resolvedAuditSpreadsheetId, settings },
           setPhase,
         );
         runId = startggResult.runId;
@@ -208,6 +216,85 @@ export function RunPage() {
       {phase === "computing" && <p>調整を計算しています(規模によっては時間がかかります。タブを閉じないでください)...</p>}
       {phase === "writing" && <p>結果を書き込んでいます...</p>}
       {errorMessage && <p role="alert">{errorMessage}</p>}
+
+      <RunConfirmationModal
+        pending={pendingConfirmation}
+        onCancel={() => setPendingConfirmation(null)}
+        onConfirm={executeRun}
+      />
     </section>
+  );
+}
+
+const SETTINGS_FIELD_LABELS: { key: keyof EffectiveSettings; label: string }[] = [
+  { key: "fixed_seed_num", label: "固定するシード数(この順位まで調整せずそのまま)" },
+  { key: "conditional_least_num_entrants", label: "小規模大会とみなす参加者数の閾値(これ未満の大会は対戦履歴から除外)" },
+  {
+    key: "apply_conditional_least_num_entrants_seed_num",
+    label: "小規模大会の除外を適用する範囲(この順位までの選手同士の比較にのみ適用)",
+  },
+  { key: "search_breadth_multiplier", label: "対戦相手候補の探索幅倍率" },
+];
+
+/**
+ * 実行前の確認モーダル。設定した対象ID向けの上書き値が正しく反映されているか(対象IDの
+ * 不一致等で意図せず既定値にフォールバックしていないか)を、実行前に一目で確認できるように
+ * する。あわせて処理に時間がかかる可能性がある旨も明示する。
+ */
+function RunConfirmationModal({
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  pending: PendingConfirmation | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (pending) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [pending]);
+
+  return (
+    <dialog ref={dialogRef} onClose={onCancel} style={{ padding: 0, border: "1px solid #ccc", maxWidth: "90vw", width: "32rem" }}>
+      {pending && (
+        <div style={{ padding: "1rem" }}>
+          <h2 style={{ marginTop: 0 }}>この設定で実行しますか?</h2>
+          <p>
+            対象ID: <code>{pending.targetId}</code>
+          </p>
+          <p>この対象IDに対して、実際に使われる設定値は以下の通りです。意図した値と異なる場合は、設定ページで対象IDを確認してください。</p>
+          <ul>
+            {SETTINGS_FIELD_LABELS.map(({ key, label }) => (
+              <li key={key}>
+                {label}: <strong>{String(pending.settings[key])}</strong>
+              </li>
+            ))}
+            {pending.settings.wavePatternWorksheetName && (
+              <li>Waveパターンワークシート: {pending.settings.wavePatternWorksheetName}</li>
+            )}
+            {pending.settings.playerWaveWorksheetName && (
+              <li>選手希望Waveワークシート: {pending.settings.playerWaveWorksheetName}</li>
+            )}
+          </ul>
+          <p role="alert">
+            大会の規模によっては、計算に時間がかかる場合があります(最大60分程度を想定)。実行中はこのタブを閉じないでください。
+          </p>
+          <button type="button" onClick={onConfirm}>
+            この設定で実行する
+          </button>{" "}
+          <button type="button" onClick={onCancel}>
+            キャンセル
+          </button>
+        </div>
+      )}
+    </dialog>
   );
 }
