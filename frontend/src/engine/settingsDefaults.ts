@@ -54,6 +54,11 @@ export interface EffectiveSettings {
   conditional_least_num_entrants: number;
   apply_conditional_least_num_entrants_seed_num: number;
   search_breadth_multiplier: number;
+  // FR-006: worksheet names (in the same spreadsheet) holding the desired-Wave settings —
+  // ported from seed_adjuster.ipynb's WAVE_PATTERN_WORKSHEET_NAME/PLAYER_WAVE_WORKSHEET_NAME
+  // Colab secrets. No wizard-derived default; unset means "no Wave constraints" (as before).
+  wavePatternWorksheetName?: string;
+  playerWaveWorksheetName?: string;
   [key: string]: unknown;
 }
 
@@ -76,6 +81,10 @@ export async function resolveEffectiveSettings(targetId: string): Promise<Effect
   const overrides = saved?.overrides ?? {};
 
   const effective = (name: string): number => Number(overrides[name] ?? resolvedDefaults[name]);
+  const stringOverride = (name: string): string | undefined => {
+    const value = overrides[name];
+    return typeof value === "string" && value.trim() !== "" ? value : undefined;
+  };
 
   return {
     ref_date: new Date().toISOString().slice(0, 10),
@@ -83,6 +92,8 @@ export async function resolveEffectiveSettings(targetId: string): Promise<Effect
     conditional_least_num_entrants: effective("conditional_least_num_entrants"),
     apply_conditional_least_num_entrants_seed_num: effective("apply_conditional_least_num_entrants_seed_num"),
     search_breadth_multiplier: effective("search_breadth_multiplier"),
+    wavePatternWorksheetName: stringOverride("wavePatternWorksheetName"),
+    playerWaveWorksheetName: stringOverride("playerWaveWorksheetName"),
   };
 }
 

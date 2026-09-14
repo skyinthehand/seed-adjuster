@@ -82,7 +82,10 @@ class WaveContext:
         wave_cycle_length: int = 1,
         allowed_waves_map: dict[str, list[str]] | None = None,
     ) -> None:
-        self.wave_pattern = wave_pattern or {}
+        # wave_pattern arrives from pyodideRuntime.ts via JSON (params_json), where object
+        # keys are always strings — normalize to int here so get_wave()'s int-keyed lookup
+        # below actually matches instead of silently missing every time.
+        self.wave_pattern = {int(k): v for k, v in (wave_pattern or {}).items()}
         self.wave_cycle_length = wave_cycle_length or 1
         self.allowed_waves_map = allowed_waves_map or {}
 

@@ -91,6 +91,20 @@ const OVERRIDE_PARAM_NAMES = [
   "search_breadth_multiplier",
 ] as const;
 
+// FR-006: Wave希望の設定は数値ではなくワークシート名(文字列)なので、上の数値パラメータとは
+// 別に保持する(保存時にNumber()変換しない)。
+const WAVE_OVERRIDE_PARAM_NAMES = ["wavePatternWorksheetName", "playerWaveWorksheetName"] as const;
+const WAVE_OVERRIDE_LABELS: Record<(typeof WAVE_OVERRIDE_PARAM_NAMES)[number], { label: string; help: string }> = {
+  wavePatternWorksheetName: {
+    label: "Waveパターン設定用ワークシート名",
+    help: "同じスプレッドシート内の別シート名。列: pattern(1始まりの周期番号)、wave(そのWave名)。省略可(Wave制約を使わない場合は空欄)。",
+  },
+  playerWaveWorksheetName: {
+    label: "選手ごとの希望Wave設定用ワークシート名",
+    help: "同じスプレッドシート内の別シート名。列: discriminator(メインシートのdiscriminator列と一致させる識別子)、wave(希望Wave名。同じdiscriminatorで複数行可)。メインシートにdiscriminator列が必要。省略可。",
+  },
+};
+
 function ParameterWizard({ onError }: { onError: (message: string | null) => void }) {
   const [targetId, setTargetId] = useState("");
   const [loaded, setLoaded] = useState<AdjustmentSettings | null>(null);
@@ -111,7 +125,7 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
         ...(settings.wizardAnswers as Partial<WizardAnswers>),
       } as WizardAnswers);
       const inputs: Record<string, string> = {};
-      for (const name of OVERRIDE_PARAM_NAMES) {
+      for (const name of [...OVERRIDE_PARAM_NAMES, ...WAVE_OVERRIDE_PARAM_NAMES]) {
         const value = settings.overrides[name];
         if (value !== undefined) inputs[name] = String(value);
       }
@@ -132,6 +146,10 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
       for (const name of OVERRIDE_PARAM_NAMES) {
         const raw = overrideInputs[name];
         if (raw !== undefined && raw !== "") overrides[name] = Number(raw);
+      }
+      for (const name of WAVE_OVERRIDE_PARAM_NAMES) {
+        const raw = overrideInputs[name];
+        if (raw !== undefined && raw !== "") overrides[name] = raw;
       }
       const updated = await putSettings(targetId, {
         wizardAnswers: answers as unknown as Record<string, unknown>,
@@ -210,6 +228,21 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
                   value={overrideInputs[name] ?? ""}
                   onChange={(e) => setOverrideInputs((prev) => ({ ...prev, [name]: e.target.value }))}
                 />
+              </div>
+            ))}
+          </fieldset>
+
+          <fieldset>
+            <legend>希望Wave設定(任意、Googleスプレッドシート入力のみ対応)</legend>
+            {WAVE_OVERRIDE_PARAM_NAMES.map((name) => (
+              <div key={name}>
+                <label htmlFor={`override_${name}`}>{WAVE_OVERRIDE_LABELS[name].label}</label>
+                <input
+                  id={`override_${name}`}
+                  value={overrideInputs[name] ?? ""}
+                  onChange={(e) => setOverrideInputs((prev) => ({ ...prev, [name]: e.target.value }))}
+                />
+                <p>{WAVE_OVERRIDE_LABELS[name].help}</p>
               </div>
             ))}
           </fieldset>

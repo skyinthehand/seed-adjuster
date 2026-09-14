@@ -132,6 +132,66 @@ function resultSheetTitle(): string {
   return `adjusted_${ts}`;
 }
 
+/**
+ * FR-006: loads the desired-Wave settings from two optional worksheets (in the same
+ * spreadsheet as the main seed table), ported from seed_adjuster.ipynb's
+ * WAVE_PATTERN_WORKSHEET_NAME/PLAYER_WAVE_WORKSHEET_NAME logic:
+ *  - wavePatternWorksheetName: columns `pattern` (a 1-based cycle position) and `wave` (its
+ *    name). Missing/unreadable is non-fatal — falls back to "no Wave constraints", matching
+ *    the notebook's behavior.
+ *  - playerWaveWorksheetName: columns `discriminator` (must match the main sheet's
+ *    `discriminator` column) and `wave` (one of that player's desired Waves; multiple rows
+ *    per discriminator are allowed). Requires the main sheet to have a `discriminator`
+ *    column, and every discriminator referenced here to exist there — both are fatal errors,
+ *    matching the notebook.
+ */
+async function loadWaveSettings(
+  spreadsheetId: string,
+  header: string[],
+  initialData: Record<string, unknown>[],
+  settings: AdjustmentSettingsEffective,
+): Promise<Pick<AdjustmentParams, "wave_pattern" | "wave_cycle_length" | "allowed_waves_map">> {
+  let wavePattern: Record<number, string> | undefined;
+  let waveCycleLength: number | undefined;
+  const wavePatternWorksheetName = settings.wavePatternWorksheetName as string | undefined;
+  if (wavePatternWorksheetName) {
+    try {
+      const { rows } = await readWorksheet(spreadsheetId, wavePatternWorksheetName);
+      const pattern: Record<number, string> = {};
+      for (const row of rows) pattern[Number(row["pattern"])] = row["wave"];
+      wavePattern = pattern;
+      const positions = Object.keys(pattern).map(Number);
+      waveCycleLength = positions.length > 0 ? Math.max(...positions) : 1;
+    } catch {
+      // Non-fatal, mirroring the notebook's try/except: fall back to no Wave constraints.
+    }
+  }
+
+  let allowedWavesMap: Record<string, string[]> | undefined;
+  const playerWaveWorksheetName = settings.playerWaveWorksheetName as string | undefined;
+  if (playerWaveWorksheetName) {
+    if (!header.includes("discriminator")) {
+      throw new Error("メインシートに discriminator 列がありません");
+    }
+    const { rows } = await readWorksheet(spreadsheetId, playerWaveWorksheetName);
+    const mainDiscriminators = new Set(initialData.map((row) => String(row["discriminator"] ?? "")));
+    const missing = rows
+      .map((row) => String(row["discriminator"] ?? ""))
+      .filter((disc) => !mainDiscriminators.has(disc));
+    if (missing.length > 0) {
+      throw new Error(`メインシートに存在しない discriminator があります: ${missing.join(", ")}`);
+    }
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const disc = String(row["discriminator"] ?? "");
+      (map[disc] ??= []).push(row["wave"]);
+    }
+    allowedWavesMap = map;
+  }
+
+  return { wave_pattern: wavePattern, wave_cycle_length: waveCycleLength, allowed_waves_map: allowedWavesMap };
+}
+
 export async function runGoogleSheetsAdjustment(
   input: RunGoogleSheetsInput,
   onStatusChange?: (status: "reading" | "computing" | "writing") => void,
@@ -166,9 +226,10 @@ export async function runGoogleSheetsAdjustment(
     onStatusChange?.("reading");
     const entrantUserIds = initialData.map((e) => e.user_id);
     const matchLookup = await loadMatchLookup(MATCH_INDEX_MANIFEST_URL, entrantUserIds);
+    const waveSettings = await loadWaveSettings(input.spreadsheetId, header, initialData, input.settings);
 
     onStatusChange?.("computing");
-    const params: AdjustmentParams = { ...input.settings };
+    const params: AdjustmentParams = { ...input.settings, ...waveSettings };
     const result = await runPyodideAdjustment(initialData, matchLookup, params);
 
     onStatusChange?.("writing");
