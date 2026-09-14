@@ -13,7 +13,11 @@ export interface MatchIndexManifest {
 export interface MatchRecord {
   timestamp: number;
   numEntrants: number;
+  tournamentId: number;
 }
+
+/** tournamentId (stringified) -> tournament name (002-result-decision-detail, contracts/tournament-directory.md). */
+export type TournamentDirectory = Record<string, string>;
 
 const SUPPORTED_FORMAT_VERSION = 1;
 const CACHE_NAME = "seed-adjuster-match-index-v1";
@@ -74,7 +78,7 @@ export async function loadMatchLookup(
     try {
       const idList = entrantUserIds.join(",");
       const result = await conn.query(`
-        SELECT "userIdA", "userIdB", "timestamp", "numEntrants"
+        SELECT "userIdA", "userIdB", "timestamp", "numEntrants", "tournamentId"
         FROM read_parquet('match-index.parquet')
         WHERE "userIdA" IN (${idList}) AND "userIdB" IN (${idList})
       `);
@@ -82,7 +86,11 @@ export async function loadMatchLookup(
       const lookup: Record<string, MatchRecord[]> = {};
       for (const row of result.toArray()) {
         const key = `${row.userIdA}:${row.userIdB}`;
-        (lookup[key] ??= []).push({ timestamp: Number(row.timestamp), numEntrants: Number(row.numEntrants) });
+        (lookup[key] ??= []).push({
+          timestamp: Number(row.timestamp),
+          numEntrants: Number(row.numEntrants),
+          tournamentId: Number(row.tournamentId),
+        });
       }
       return lookup;
     } finally {
@@ -92,4 +100,35 @@ export async function loadMatchLookup(
     await db.terminate();
     worker.terminate();
   }
+}
+
+function tournamentsUrlFromManifestUrl(manifestUrl: string): string {
+  return manifestUrl.replace(/manifest\.json(?=$|[?#])/, "tournaments.json");
+}
+
+/**
+ * Fetches the tournamentId -> name lookup table (002-result-decision-detail,
+ * contracts/tournament-directory.md), published alongside manifest.json. Cached the same way
+ * as the Parquet artifact (keyed by the manifest's generatedAt) so repeat opens of the
+ * placement-decision detail view don't re-fetch it. Only called lazily when that detail view
+ * is first opened — never during a normal run (research.md R1, R4).
+ */
+export async function fetchTournamentDirectory(manifestUrl: string): Promise<TournamentDirectory> {
+  const manifest = await fetchManifest(manifestUrl);
+  const tournamentsUrl = tournamentsUrlFromManifestUrl(manifestUrl);
+  const cache = await caches.open(CACHE_NAME);
+  const cacheKey = new Request(`${tournamentsUrl}#${manifest.generatedAt}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const body: { tournaments: TournamentDirectory } = await cached.json();
+    return body.tournaments;
+  }
+
+  const response = await fetch(tournamentsUrl);
+  if (!response.ok) {
+    throw new Error(`大会名対応表の取得に失敗しました (${response.status})`);
+  }
+  await cache.put(cacheKey, response.clone());
+  const body: { tournaments: TournamentDirectory } = await response.json();
+  return body.tournaments;
 }

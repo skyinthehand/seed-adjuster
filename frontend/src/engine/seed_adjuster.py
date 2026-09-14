@@ -24,6 +24,7 @@ from typing import Any, Callable, Iterable, TypedDict
 class MatchRecord(TypedDict):
     timestamp: int
     numEntrants: int
+    tournamentId: int
 
 
 MatchLookup = dict[tuple[int, int], list[MatchRecord]]
@@ -131,6 +132,7 @@ def is_adjusted_seed(
     adjusted_data: list[dict[str, Any]],
     target_initial_index: int,
     calc_match_point: Callable[[int, int, int], float],
+    match_lookup: MatchLookup,
     wave_ctx: WaveContext,
     search_breadth_multiplier: int,
     conditional_least_num_entrants: int,
@@ -159,11 +161,23 @@ def is_adjusted_seed(
             else 0
         )
         current_match_value = calc_match_point(target_user_id, opponent_user_id, least_num_entrants)
+        # Individual match records behind current_match_value, kept unaggregated here — the
+        # "same tournament/date -> 1 entry + count" grouping (spec.md Clarifications) is done
+        # by runAdjustment.ts's parseDecisionLog(), not here (research.md R5, T011 note).
+        raw_matches = search_player_matches(match_lookup, target_user_id, opponent_user_id, least_num_entrants)
 
         player_name_for_log = adjusted_data[opponent_index].get(
             "player_name", adjusted_data[opponent_index].get("gamer_tag", "Unknown")
         )
-        match_log.extend([opponent_index, opponent_user_id, player_name_for_log, current_match_value])
+        match_log.extend(
+            [
+                opponent_index,
+                opponent_user_id,
+                player_name_for_log,
+                current_match_value,
+                [[m["timestamp"], m["tournamentId"]] for m in raw_matches],
+            ]
+        )
         if adjusted_match_value <= TEMPORARY_INITIAL_MATCH_VALUE:
             adjusted_match_value = current_match_value
             continue
@@ -244,6 +258,7 @@ def get_least_match(
     adjusted_data: list[dict[str, Any]],
     target_indices: list[int],
     calc_match_point: Callable[[int, int, int], float],
+    match_lookup: MatchLookup,
     conditional_least_num_entrants: int,
     apply_conditional_least_num_entrants_seed_num: int,
 ) -> dict[str, Any]:
@@ -261,11 +276,21 @@ def get_least_match(
             else 0
         )
         current_match_value = calc_match_point(current_user_id, opponent_user_id, least_num_entrants)
+        # See is_adjusted_seed's identical comment: unaggregated on purpose (research.md R5).
+        raw_matches = search_player_matches(match_lookup, current_user_id, opponent_user_id, least_num_entrants)
 
         player_name_for_log = initial_data[current_index].get(
             "player_name", initial_data[current_index].get("gamer_tag", "Unknown")
         )
-        match_log.extend([current_index, current_user_id, player_name_for_log, current_match_value])
+        match_log.extend(
+            [
+                current_index,
+                current_user_id,
+                player_name_for_log,
+                current_match_value,
+                [[m["timestamp"], m["tournamentId"]] for m in raw_matches],
+            ]
+        )
         if adjusted_match_value <= TEMPORARY_INITIAL_MATCH_VALUE or current_match_value < adjusted_match_value:
             adjusted_index = current_index
             adjusted_match_value = current_match_value
@@ -355,6 +380,7 @@ def get_adjusted_result(
                 adjusted_data,
                 candidate_index,
                 calc_match_point,
+                match_lookup,
                 wave_ctx,
                 search_breadth_multiplier,
                 conditional_least_num_entrants,
@@ -378,6 +404,7 @@ def get_adjusted_result(
                 adjusted_data,
                 effective_indices,
                 calc_match_point,
+                match_lookup,
                 conditional_least_num_entrants,
                 apply_conditional_least_num_entrants_seed_num,
             )

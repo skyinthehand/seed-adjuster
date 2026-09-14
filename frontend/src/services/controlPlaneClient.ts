@@ -75,9 +75,19 @@ export function getRunStatus(runId: string): Promise<RunStatusResponse> {
   return request(`/runs/${runId}`);
 }
 
+export interface ComparedCandidateMatch {
+  tournamentId: number;
+  date: string;
+  count: number;
+}
+
 export interface CompleteRunRequest {
   adjustedEntries: { displayName: string; adjustedPosition: number; originalPosition: number; adjustedWave: string | null }[];
-  decisionLog: { position: number; comparedCandidates: { candidateDisplayName: string; matchPointValue: number }[]; decisionLogicType: string }[];
+  decisionLog: {
+    position: number;
+    comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
+    decisionLogicType: string;
+  }[];
   waveConstraintViolations: { position: number; playerDisplayName: string; wave: string; allowedWaves: string[] }[];
   preAdjustmentSnapshot?: { displayName: string; originalPosition: number }[] | null;
 }
@@ -105,7 +115,7 @@ export interface AdjustedEntry {
 
 export interface DecisionLogEntry {
   position: number;
-  comparedCandidates: { candidateDisplayName: string; matchPointValue: number }[];
+  comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
   decisionLogicType: string;
 }
 

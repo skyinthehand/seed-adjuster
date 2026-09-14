@@ -41,6 +41,7 @@ export interface InitialSeedEntry {
 export interface MatchLookupEntry {
   timestamp: number;
   numEntrants: number;
+  tournamentId: number;
 }
 
 export interface AdjustmentParams {

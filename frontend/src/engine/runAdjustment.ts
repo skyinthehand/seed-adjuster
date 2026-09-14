@@ -84,7 +84,7 @@ function buildResultMatrix(
   const matrix: string[][] = [header];
   adjustedData.forEach((row, i) => {
     const rowValues = outputKeys.map((col) => (col in row ? String(row[col] ?? "") : ""));
-    matrix.push([...rowValues, "", ...matchLogs[i].map((v) => String(v))]);
+    matrix.push([...rowValues, "", ...spreadsheetMatchLogRow(matchLogs[i]).map((v) => String(v))]);
   });
 
   if (waveViolations.length > 0) {
@@ -99,30 +99,86 @@ function buildResultMatrix(
   return matrix;
 }
 
+interface ComparedCandidateMatch {
+  tournamentId: number;
+  date: string;
+  count: number;
+}
+
 interface DecisionLogEntry {
   position: number;
-  comparedCandidates: { candidateDisplayName: string; matchPointValue: number }[];
+  comparedCandidates: { candidateDisplayName: string; matchPointValue: number; matches: ComparedCandidateMatch[] }[];
   decisionLogicType: string;
+}
+
+// [opponentIndex, opponentUserId, name, matchPointValue, rawMatches] — see
+// is_adjusted_seed/get_least_match in seed_adjuster.py for where each chunk comes from.
+// rawMatches is `[[timestamp, tournamentId], ...]`, unaggregated (research.md R5); the
+// "same tournament+date -> 1 entry with a count" grouping (spec.md Clarifications) happens
+// below in aggregateMatches(), not in Python.
+const CANDIDATE_CHUNK_SIZE = 5;
+
+/** Unix seconds -> "YYYY-MM-DD" in JST, matching the JST-based ref_date handling elsewhere
+ * in this codebase (seed_adjuster.py's get_midnight_jst_unixtime_from_str). */
+function toJstDateString(unixSeconds: number): string {
+  const jst = new Date((unixSeconds + 9 * 3600) * 1000);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(jst.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function aggregateMatches(rawMatches: unknown): ComparedCandidateMatch[] {
+  if (!Array.isArray(rawMatches)) return [];
+  const byKey = new Map<string, ComparedCandidateMatch>();
+  for (const m of rawMatches) {
+    if (!Array.isArray(m) || m.length < 2) continue;
+    const [timestamp, tournamentId] = m as [number, number];
+    const date = toJstDateString(Number(timestamp));
+    const key = `${tournamentId}:${date}`;
+    const existing = byKey.get(key);
+    if (existing) existing.count += 1;
+    else byKey.set(key, { tournamentId: Number(tournamentId), date, count: 1 });
+  }
+  return [...byKey.values()];
 }
 
 /**
  * `match_logs[i]` (from seed_adjuster.py) is either `[]` (no comparison needed — e.g. a
- * fixed seed) or `[decisionLogicType, opponentName, "", idx, userId, name, value, idx, ...]`
- * — a flat list of repeating 4-tuples after the 3-element header. See
- * `is_adjusted_seed`/`get_least_match` in seed_adjuster.py for where each 4-tuple comes from.
+ * fixed seed) or `[decisionLogicType, opponentName, "", <CANDIDATE_CHUNK_SIZE-tuple>, ...]`
+ * — a flat list of repeating chunks after the 3-element header.
  */
 function parseDecisionLog(matchLogs: unknown[][]): DecisionLogEntry[] {
   const entries: DecisionLogEntry[] = [];
   matchLogs.forEach((row, i) => {
     if (row.length === 0) return;
     const [decisionLogicType, , , ...rest] = row as [string, string, string, ...unknown[]];
-    const comparedCandidates: { candidateDisplayName: string; matchPointValue: number }[] = [];
-    for (let j = 0; j + 3 < rest.length; j += 4) {
-      comparedCandidates.push({ candidateDisplayName: String(rest[j + 2]), matchPointValue: Number(rest[j + 3]) });
+    const comparedCandidates: DecisionLogEntry["comparedCandidates"] = [];
+    for (let j = 0; j + CANDIDATE_CHUNK_SIZE - 1 < rest.length; j += CANDIDATE_CHUNK_SIZE) {
+      comparedCandidates.push({
+        candidateDisplayName: String(rest[j + 2]),
+        matchPointValue: Number(rest[j + 3]),
+        matches: aggregateMatches(rest[j + 4]),
+      });
     }
     entries.push({ position: i + 1, comparedCandidates, decisionLogicType: String(decisionLogicType) });
   });
   return entries;
+}
+
+/**
+ * The audit spreadsheet only ever showed [idx, userId, name, value] per candidate
+ * (buildResultMatrix predates matches[]) — strip the 5th (rawMatches) element per chunk so
+ * the spreadsheet output is unchanged rather than gaining a stringified array column.
+ */
+function spreadsheetMatchLogRow(row: unknown[]): unknown[] {
+  if (row.length === 0) return [];
+  const [decisionLogicType, opponentName, blank, ...rest] = row;
+  const flattened: unknown[] = [decisionLogicType, opponentName, blank];
+  for (let j = 0; j + CANDIDATE_CHUNK_SIZE - 1 < rest.length; j += CANDIDATE_CHUNK_SIZE) {
+    flattened.push(rest[j], rest[j + 1], rest[j + 2], rest[j + 3]);
+  }
+  return flattened;
 }
 
 function resultSheetTitle(): string {
