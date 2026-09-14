@@ -36,7 +36,12 @@ async function fetchParquetCached(manifest: MatchIndexManifest): Promise<ArrayBu
   const cached = await cache.match(cacheKey);
   if (cached) return cached.arrayBuffer();
 
-  const response = await fetch(manifest.parquetUrl);
+  // no-store: raw.githubusercontent.com sends Cache-Control: max-age=300 on this URL, but
+  // indexer force-pushes new content to the same URL on every run — the browser's own HTTP
+  // cache can't tell the content changed and would happily serve a stale (pre-schema-change)
+  // body for up to 5 minutes. Our own Cache API layer above already versions correctly by
+  // generatedAt, so bypassing the browser cache here is safe and necessary.
+  const response = await fetch(manifest.parquetUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`対戦履歴インデックス(Parquet)の取得に失敗しました (${response.status})`);
   }
@@ -124,7 +129,9 @@ export async function fetchTournamentDirectory(manifestUrl: string): Promise<Tou
     return body.tournaments;
   }
 
-  const response = await fetch(tournamentsUrl);
+  // no-store: same reasoning as fetchParquetCached() above — this URL is reused across
+  // indexer runs, so the browser's own HTTP cache must be bypassed.
+  const response = await fetch(tournamentsUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`大会名対応表の取得に失敗しました (${response.status})`);
   }
