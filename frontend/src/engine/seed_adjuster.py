@@ -392,8 +392,13 @@ def get_adjusted_result(
                 if wave_ignored:
                     _record_wave_violation(wave_violations, initial_data, adjusted_data, candidate_index, wave_ctx)
                 opponent_idx = calc_opponent_index(len(adjusted_data))
-                opponent_player_name = initial_data[opponent_idx].get(
-                    "player_name", initial_data[opponent_idx].get("gamer_tag", "Unknown")
+                # adjusted_data, not initial_data: calc_opponent_index gives a position in the
+                # OUTPUT (adjusted) ordering, and by the single-elimination bracket-mirror
+                # invariant it always refers to an already-placed slot there. Indexing
+                # initial_data with it instead was a bug — it showed whoever originally held
+                # that seed number, not who is actually now placed there (2026-09-16 fix).
+                opponent_player_name = adjusted_data[opponent_idx].get(
+                    "player_name", adjusted_data[opponent_idx].get("gamer_tag", "Unknown")
                 )
                 match_logs.append(["best_left_player_based", opponent_player_name, ""] + match_log_result)
                 place(candidate_index)
@@ -414,8 +419,10 @@ def get_adjusted_result(
                 _record_wave_violation(
                     wave_violations, initial_data, adjusted_data, least_match_result["adjusted_index"], wave_ctx
                 )
-            opponent_player_name = initial_data[least_match_result["opponent_index"]].get(
-                "player_name", initial_data[least_match_result["opponent_index"]].get("gamer_tag", "Unknown")
+            # Same fix as the best_left_player_based branch above: adjusted_data, not
+            # initial_data (2026-09-16).
+            opponent_player_name = adjusted_data[least_match_result["opponent_index"]].get(
+                "player_name", adjusted_data[least_match_result["opponent_index"]].get("gamer_tag", "Unknown")
             )
             match_logs.append(["seed_position_based", opponent_player_name, ""] + least_match_result["match_log"])
             place(least_match_result["adjusted_index"])
