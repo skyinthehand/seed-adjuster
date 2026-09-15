@@ -25,6 +25,7 @@ export interface AdjustmentSettingsEffective {
 
 export interface RunGoogleSheetsInput {
   targetId: string;
+  settingsName: string;
   spreadsheetId: string;
   worksheetName: string;
   settings: AdjustmentSettingsEffective;
@@ -294,6 +295,7 @@ export async function runGoogleSheetsAdjustment(
 
   const { runId } = await createRun({
     targetId: input.targetId,
+    settingsName: input.settingsName,
     inputSource: "google_sheets",
     sourceReference: { spreadsheetId: input.spreadsheetId, worksheetName: input.worksheetName },
     auditSpreadsheetId: input.spreadsheetId,
@@ -346,6 +348,7 @@ export async function runGoogleSheetsAdjustment(
 
 export interface RunStartggInput {
   targetId: string;
+  settingsName: string;
   phaseId: string;
   auditSpreadsheetId: string;
   settings: AdjustmentSettingsEffective;
@@ -378,6 +381,7 @@ export async function runStartggAdjustment(
   try {
     ({ runId } = await createRun({
       targetId: input.targetId,
+      settingsName: input.settingsName,
       inputSource: "startgg",
       sourceReference: { phaseId: input.phaseId },
       auditSpreadsheetId: input.auditSpreadsheetId,

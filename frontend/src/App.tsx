@@ -4,16 +4,18 @@ import { RunPage } from "./pages/RunPage";
 import { RunStatusPage } from "./pages/RunStatusPage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { WritebackConfirmPage } from "./pages/WritebackConfirmPage";
+import { HistoryPage } from "./pages/HistoryPage";
 
 export function App() {
   return (
     <HashRouter>
       <nav>
-        <Link to="/">実行</Link> | <Link to="/settings">設定</Link>
+        <Link to="/">実行</Link> | <Link to="/settings">設定</Link> | <Link to="/history">履歴</Link>
       </nav>
       <Routes>
         <Route path="/" element={<RunPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/runs/:runId" element={<RunStatusPage />} />
         <Route path="/results/:runId" element={<ResultsPage />} />
         <Route path="/writeback/:runId" element={<WritebackConfirmPage />} />

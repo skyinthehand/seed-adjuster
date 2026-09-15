@@ -5,7 +5,7 @@ import {
   handleFailRun,
   handleWritebackRecorded,
 } from "./api/runs";
-import { handleGetPublicResult, handleListPublicRuns } from "./api/public";
+import { handleGetPublicResult, handleListPublicRuns, handleListRunHistory } from "./api/public";
 import { handleStartggRelay } from "./api/relay";
 import { handleGetSettings, handlePutSettings, handleListSettings } from "./api/settings";
 import { corsHeaders, errorResponse } from "./api/http";
@@ -52,6 +52,10 @@ async function route(pathname: string, method: string, request: Request, env: En
 
   if (pathname === "/public/runs" && method === "GET") {
     return handleListPublicRuns(request, env);
+  }
+
+  if (pathname === "/public/run-history" && method === "GET") {
+    return handleListRunHistory(request, env);
   }
 
   if (pathname === "/relay/startgg" && method === "POST") {

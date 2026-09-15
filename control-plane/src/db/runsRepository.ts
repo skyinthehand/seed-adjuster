@@ -19,6 +19,7 @@ export interface SizeWarning {
 export interface CreateRunInput {
   runId: string;
   targetId: string;
+  settingsName: string;
   inputSource: InputSource;
   sourceReference: SourceReference;
   auditSpreadsheetId: string | null;
@@ -63,6 +64,7 @@ export interface CompleteRunInput {
 export interface AdjustmentRunRecord {
   runId: string;
   targetId: string;
+  settingsName: string | null;
   inputSource: InputSource;
   status: RunStatus;
   startedAt: string | null;
@@ -88,14 +90,15 @@ const nowIso = () => new Date().toISOString();
 export async function createRun(env: Env, input: CreateRunInput): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO adjustment_runs (
-       run_id, target_id, input_source, source_reference_json, audit_spreadsheet_id,
+       run_id, target_id, settings_name, input_source, source_reference_json, audit_spreadsheet_id,
        settings_snapshot_json, status, started_at, estimated_duration_seconds,
        entrant_count, size_warning_json
-     ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`,
   )
     .bind(
       input.runId,
       input.targetId,
+      input.settingsName,
       input.inputSource,
       JSON.stringify(input.sourceReference),
       input.auditSpreadsheetId,
@@ -110,7 +113,7 @@ export async function createRun(env: Env, input: CreateRunInput): Promise<void> 
 
 export async function getRun(env: Env, runId: string): Promise<AdjustmentRunRecord | null> {
   const row = await env.DB.prepare(
-    `SELECT run_id, target_id, input_source, status, started_at, finished_at,
+    `SELECT run_id, target_id, settings_name, input_source, status, started_at, finished_at,
             failure_hint, size_warning_json, writeback_approved
      FROM adjustment_runs WHERE run_id = ?`,
   )
@@ -120,6 +123,7 @@ export async function getRun(env: Env, runId: string): Promise<AdjustmentRunReco
   return {
     runId: row.run_id as string,
     targetId: row.target_id as string,
+    settingsName: (row.settings_name as string | null) ?? null,
     inputSource: row.input_source as InputSource,
     status: row.status as RunStatus,
     startedAt: row.started_at as string | null,
@@ -213,4 +217,61 @@ export async function listRunsForTarget(env: Env, targetId: string): Promise<Run
     finishedAt: row.finished_at as string,
     inputSource: row.input_source as InputSource,
   }));
+}
+
+// Distinct from RunHistoryEntry above (which backs the narrower, existing
+// GET /public/runs?targetId= for FR-016) to avoid a same-name/different-shape clash;
+// this backs the new GET /public/run-history (003フィーチャー, contracts/run-history.md).
+export interface RunHistorySummary {
+  runId: string;
+  targetId: string;
+  settingsName: string | null;
+  inputSource: InputSource;
+  status: RunStatus;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface ListRunHistoryParams {
+  settingsName?: string;
+  limit: number;
+  offset: number;
+}
+
+export async function listRunHistory(
+  env: Env,
+  params: ListRunHistoryParams,
+): Promise<{ runs: RunHistorySummary[]; hasMore: boolean }> {
+  const whereClause = params.settingsName ? "WHERE settings_name = ?" : "";
+  const bindings = params.settingsName
+    ? [params.settingsName, params.limit + 1, params.offset]
+    : [params.limit + 1, params.offset];
+
+  const { results } = await env.DB.prepare(
+    `SELECT run_id, target_id, settings_name, input_source, status, created_at, started_at, finished_at
+     FROM adjustment_runs
+     ${whereClause}
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`,
+  )
+    .bind(...bindings)
+    .all<Record<string, unknown>>();
+
+  const hasMore = results.length > params.limit;
+  const rows = hasMore ? results.slice(0, params.limit) : results;
+
+  return {
+    runs: rows.map((row) => ({
+      runId: row.run_id as string,
+      targetId: row.target_id as string,
+      settingsName: (row.settings_name as string | null) ?? null,
+      inputSource: row.input_source as InputSource,
+      status: row.status as RunStatus,
+      createdAt: row.created_at as string,
+      startedAt: row.started_at as string | null,
+      finishedAt: row.finished_at as string | null,
+    })),
+    hasMore,
+  };
 }

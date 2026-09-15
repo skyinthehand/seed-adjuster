@@ -29,14 +29,14 @@ description: "Task list for 実行履歴ページ"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 `control-plane/src/db/schema.sql`: `adjustment_runs`テーブルに`settings_name TEXT`カラムを追加する。あわせて、既存の`CREATE TABLE IF NOT EXISTS`方式では稼働中のテーブルに反映されない旨のコメントを残す(research.md R1)
-- [ ] T002 `control-plane/src/db/runsRepository.ts`: `CreateRunInput`/`AdjustmentRunRecord`に`settingsName: string`(取得系は`string | null`)を追加し、`createRun()`が`settings_name`列へ保存、`getRun()`が返却するよう変更する。あわせて新規`RunHistoryEntry`型(`runId, targetId, settingsName, inputSource, status, createdAt, startedAt, finishedAt`)と`listRunHistory(env, { settingsName?, limit, offset })`関数を追加する。全ステータス(`queued`/`running`/`succeeded`/`failed`)を対象に`created_at`降順で取得し、`{ runs, hasMore }`を返す(`hasMore`は`offset + limit`件より先に行が存在するかで判定。research.md R2, R3, R5、contracts/run-history.md)
-- [ ] T003 `control-plane/src/api/runs.ts`: `handleCreateRun()`で`settingsName`が非空文字列であることを必須チェックに追加(欠落・空文字は`400 INVALID_REQUEST`)。`handleGetRun()`のレスポンスは`getRun()`の返り値をそのまま返しているため`settingsName`は自動的に含まれることを確認する(contracts/run-history.md)
-- [ ] T004 `control-plane/src/api/public.ts`: 新規`handleListRunHistory(request, env)`を追加する。クエリパラメータ`settingsName`(任意)・`limit`(既定30・上限100)・`offset`(既定0)をパースし、T002の`listRunHistory()`を呼んで`{ runs, hasMore }`をそのまま返す(contracts/run-history.md)
-- [ ] T005 `control-plane/src/index.ts`: `GET /public/run-history`を`handleListRunHistory`へルーティングする(既存の`/public/runs`ルートとは別のパスのため、既存挙動に影響しない)
-- [ ] T006 [P] `frontend/src/services/controlPlaneClient.ts`: `CreateRunRequest`に`settingsName: string`、`RunStatusResponse`に`settingsName: string | null`を追加する。新規`RunHistoryEntry`型(control-planeのレスポンス形と一致させる)と、`GET /public/run-history`を呼ぶ`listRunHistory(params: { settingsName?: string; limit?: number; offset?: number }): Promise<{ runs: RunHistoryEntry[]; hasMore: boolean }>`を追加する
-- [ ] T007 `frontend/src/engine/runAdjustment.ts`: `RunGoogleSheetsInput`/`RunStartggInput`に`settingsName: string`を追加し、2箇所の`createRun()`呼び出し(`runGoogleSheetsAdjustment`/`runStartggAdjustment`)にそのまま渡す(T006完了後)
-- [ ] T008 `frontend/src/pages/RunPage.tsx`: `runGoogleSheetsAdjustment`/`runStartggAdjustment`の呼び出し引数に、既にstateとして保持している`settingsName`を追加する(T007完了後)
+- [X] T001 `control-plane/src/db/schema.sql`: `adjustment_runs`テーブルに`settings_name TEXT`カラムを追加する。あわせて、既存の`CREATE TABLE IF NOT EXISTS`方式では稼働中のテーブルに反映されない旨のコメントを残す(research.md R1)
+- [X] T002 `control-plane/src/db/runsRepository.ts`: `CreateRunInput`/`AdjustmentRunRecord`に`settingsName: string`(取得系は`string | null`)を追加し、`createRun()`が`settings_name`列へ保存、`getRun()`が返却するよう変更する。あわせて新規`RunHistoryEntry`型(`runId, targetId, settingsName, inputSource, status, createdAt, startedAt, finishedAt`)と`listRunHistory(env, { settingsName?, limit, offset })`関数を追加する。全ステータス(`queued`/`running`/`succeeded`/`failed`)を対象に`created_at`降順で取得し、`{ runs, hasMore }`を返す(`hasMore`は`offset + limit`件より先に行が存在するかで判定。research.md R2, R3, R5、contracts/run-history.md)
+- [X] T003 `control-plane/src/api/runs.ts`: `handleCreateRun()`で`settingsName`が非空文字列であることを必須チェックに追加(欠落・空文字は`400 INVALID_REQUEST`)。`handleGetRun()`のレスポンスは`getRun()`の返り値をそのまま返しているため`settingsName`は自動的に含まれることを確認する(contracts/run-history.md)
+- [X] T004 `control-plane/src/api/public.ts`: 新規`handleListRunHistory(request, env)`を追加する。クエリパラメータ`settingsName`(任意)・`limit`(既定30・上限100)・`offset`(既定0)をパースし、T002の`listRunHistory()`を呼んで`{ runs, hasMore }`をそのまま返す(contracts/run-history.md)
+- [X] T005 `control-plane/src/index.ts`: `GET /public/run-history`を`handleListRunHistory`へルーティングする(既存の`/public/runs`ルートとは別のパスのため、既存挙動に影響しない)
+- [X] T006 [P] `frontend/src/services/controlPlaneClient.ts`: `CreateRunRequest`に`settingsName: string`、`RunStatusResponse`に`settingsName: string | null`を追加する。新規`RunHistoryEntry`型(control-planeのレスポンス形と一致させる)と、`GET /public/run-history`を呼ぶ`listRunHistory(params: { settingsName?: string; limit?: number; offset?: number }): Promise<{ runs: RunHistoryEntry[]; hasMore: boolean }>`を追加する
+- [X] T007 `frontend/src/engine/runAdjustment.ts`: `RunGoogleSheetsInput`/`RunStartggInput`に`settingsName: string`を追加し、2箇所の`createRun()`呼び出し(`runGoogleSheetsAdjustment`/`runStartggAdjustment`)にそのまま渡す(T006完了後)
+- [X] T008 `frontend/src/pages/RunPage.tsx`: `runGoogleSheetsAdjustment`/`runStartggAdjustment`の呼び出し引数に、既にstateとして保持している`settingsName`を追加する(T007完了後)
 
 **Checkpoint**: `POST /runs`が`settingsName`を記録し、`GET /public/run-history`が全実行を横断取得できる状態。ここから各ユーザーストーリーのUI実装に進める。
 
@@ -50,11 +50,11 @@ description: "Task list for 実行履歴ページ"
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] `frontend/src/App.tsx`: ナビゲーションに「履歴」リンクを追加し、`/history`ルートを新規`HistoryPage`にマッピングする
-- [ ] T010 [US1] `frontend/src/pages/HistoryPage.tsx`(新規): マウント時に`listRunHistory({})`(絞り込みなし)を呼び出し、読み込み中状態を表示する。取得した`runs`をstateに保持する
-- [ ] T011 [US1] `frontend/src/pages/HistoryPage.tsx`: 一覧を表(または`<ul>`)で表示する。各行に設定名(`settingsName`が`null`の場合は「設定名不明」)・入力方式(`google_sheets`→「Googleスプレッドシート」、`startgg`→「start.gg」の日本語表示)・実行日時(`createdAt`を読みやすい形式に整形)・ステータスラベル(`queued`/`running`→「実行中」、`succeeded`→「成功」、`failed`→「失敗」に変換する共有関数`formatRunStatus()`を実装)を表示する(FR-002, FR-003)
-- [ ] T012 [US1] `frontend/src/pages/HistoryPage.tsx`: `status === "succeeded"`の行のみ`<Link to={`/results/${runId}`}>`でラップし、結果ページへ遷移できるようにする。一覧が0件の場合は「まだ実行履歴がありません」等の空状態メッセージを表示する(FR-004, FR-006)
-- [ ] T013 [US1] `frontend/src/pages/HistoryPage.tsx`: `listRunHistory()`の取得に失敗した場合、エラーメッセージと再試行ボタン(再度`listRunHistory()`を呼び直す)を表示する(FR-010)
+- [X] T009 [US1] `frontend/src/App.tsx`: ナビゲーションに「履歴」リンクを追加し、`/history`ルートを新規`HistoryPage`にマッピングする
+- [X] T010 [US1] `frontend/src/pages/HistoryPage.tsx`(新規): マウント時に`listRunHistory({})`(絞り込みなし)を呼び出し、読み込み中状態を表示する。取得した`runs`をstateに保持する
+- [X] T011 [US1] `frontend/src/pages/HistoryPage.tsx`: 一覧を表(または`<ul>`)で表示する。各行に設定名(`settingsName`が`null`の場合は「設定名不明」)・入力方式(`google_sheets`→「Googleスプレッドシート」、`startgg`→「start.gg」の日本語表示)・実行日時(`createdAt`を読みやすい形式に整形)・ステータスラベル(`queued`/`running`→「実行中」、`succeeded`→「成功」、`failed`→「失敗」に変換する共有関数`formatRunStatus()`を実装)を表示する(FR-002, FR-003)
+- [X] T012 [US1] `frontend/src/pages/HistoryPage.tsx`: `status === "succeeded"`の行のみ`<Link to={`/results/${runId}`}>`でラップし、結果ページへ遷移できるようにする。一覧が0件の場合は「まだ実行履歴がありません」等の空状態メッセージを表示する(FR-004, FR-006)
+- [X] T013 [US1] `frontend/src/pages/HistoryPage.tsx`: `listRunHistory()`の取得に失敗した場合、エラーメッセージと再試行ボタン(再度`listRunHistory()`を呼び直す)を表示する(FR-010)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — this is the MVP。
 
@@ -68,8 +68,8 @@ description: "Task list for 実行履歴ページ"
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] `frontend/src/pages/HistoryPage.tsx`: 既存の`listSettingsNames()`(`controlPlaneClient.ts`、設定ページ・実行ページで使用中)を使って登録済み設定名一覧を取得し、「絞り込みなし」を含む`<select>`を追加する。選択が変わるたびに`settingsName`を指定して`listRunHistory()`を呼び直し、一覧・オフセットをリセットする(FR-007、research.md R4)
-- [ ] T015 [US2] `frontend/src/pages/HistoryPage.tsx`: `offset`/`limit`のstateを追加し、「さらに読み込む」ボタンを一覧末尾に表示する(`hasMore === true`のときのみ表示)。押下時は現在の`offset + limit`を新たな`offset`として`listRunHistory()`を呼び、結果を既存の一覧に追記する(FR-008、research.md R3)
+- [X] T014 [US2] `frontend/src/pages/HistoryPage.tsx`: 既存の`listSettingsNames()`(`controlPlaneClient.ts`、設定ページ・実行ページで使用中)を使って登録済み設定名一覧を取得し、「絞り込みなし」を含む`<select>`を追加する。選択が変わるたびに`settingsName`を指定して`listRunHistory()`を呼び直し、一覧・オフセットをリセットする(FR-007、research.md R4)
+- [X] T015 [US2] `frontend/src/pages/HistoryPage.tsx`: `offset`/`limit`のstateを追加し、「さらに読み込む」ボタンを一覧末尾に表示する(`hasMore === true`のときのみ表示)。押下時は現在の`offset + limit`を新たな`offset`として`listRunHistory()`を呼び、結果を既存の一覧に追記する(FR-008、research.md R3)
 
 **Checkpoint**: User Stories 1 and 2 both work independently。
 
@@ -83,8 +83,8 @@ description: "Task list for 実行履歴ページ"
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] `frontend/src/pages/HistoryPage.tsx`: `status`が`succeeded`以外の行は`<Link>`でラップせず、行内に短い説明("実行中"の場合「まだ結果はありません」、"失敗"の場合「この実行は失敗しました」)を表示し、選択操作をしても何も起きない/迷わないようにする(spec.md User Story 3 Acceptance Scenario 2)
-- [ ] T017 [US3] `frontend/src/pages/HistoryPage.tsx`: 「失敗」ステータスの行を視覚的に区別できるスタイル(例: 警告色のバッジ)にし、長い一覧の中でも見つけやすくする(SC-004)
+- [X] T016 [US3] `frontend/src/pages/HistoryPage.tsx`: `status`が`succeeded`以外の行は`<Link>`でラップせず、行内に短い説明("実行中"の場合「まだ結果はありません」、"失敗"の場合「この実行は失敗しました」)を表示し、選択操作をしても何も起きない/迷わないようにする(spec.md User Story 3 Acceptance Scenario 2)
+- [X] T017 [US3] `frontend/src/pages/HistoryPage.tsx`: 「失敗」ステータスの行を視覚的に区別できるスタイル(例: 警告色のバッジ)にし、長い一覧の中でも見つけやすくする(SC-004)
 
 **Checkpoint**: All user stories should now be independently functional。
 
@@ -94,7 +94,15 @@ description: "Task list for 実行履歴ページ"
 
 **Purpose**: 全ストーリーに関わる横断的な仕上げ
 
-- [ ] T018 Run quickstart.mdの全検証シナリオ(ローカルD1へのスキーマ変更適用、`settingsName`が実行記録に残ることの確認、履歴ページの基本動作/絞り込み/追加読み込み/失敗・実行中の扱い/設定名不明な既存実行の扱い、既存機能への非影響)を実施する。リモートD1への`ALTER TABLE`適用・`git push`・`wrangler deploy`は、実行前に必ずユーザーへ確認する(constitution 原則II)
+- [X] T018 Run quickstart.mdの全検証シナリオ(ローカルD1へのスキーマ変更適用、`settingsName`が実行記録に残ることの確認、履歴ページの基本動作/絞り込み/追加読み込み/失敗・実行中の扱い/設定名不明な既存実行の扱い、既存機能への非影響)を実施する。リモートD1への`ALTER TABLE`適用・`git push`・`wrangler deploy`は、実行前に必ずユーザーへ確認する(constitution 原則II)(実施範囲の制約: このCLI環境には実ブラウザ・デプロイ済みCloudflare Workers/D1/GitHub Pagesが存在しないため、真のE2Eブラウザ検証は未実施。代わりに以下を実施:
+  - シナリオ1: ローカルD1(`wrangler d1 execute --local`)で`PRAGMA table_info`により`settings_name`列が未追加であることを確認したうえで`ALTER TABLE adjustment_runs ADD COLUMN settings_name TEXT`を実行し、追加されたことを確認(research.md R1の懸念どおり、`schema.sql`の再実行だけでは列が増えないことを実地で確認)
+  - シナリオ2: `wrangler dev --local`を起動し、`curl`で`POST /runs`に`settingsName`を含めて送信 → `GET /runs/{runId}`・`GET /public/run-history`の両方に送信した値がそのまま含まれることを確認。`settingsName`欠落時は`400 INVALID_REQUEST`になることを確認
+  - シナリオ3: 履歴ページのUIロジックは`tsc -b --force`・`eslint`・`vite build`がすべてエラー・警告なく通ることを確認。実ブラウザでの目視確認(一覧表示・空状態・エラー再試行ボタンの見た目)は未実施
+  - シナリオ4: `GET /public/run-history`に`limit=1`/`offset=1`を指定し、`hasMore`が正しく`true`→`false`と切り替わることを確認。`settingsName`クエリによる絞り込みが完全一致で機能し、該当なしのときは空配列になることを確認
+  - シナリオ5: 対象のRunを`POST /runs/{runId}/fail`で失敗させ、`GET /public/run-history`のレスポンスで`status`が`failed`に変わることを確認。HistoryPage.tsxのコードレビューにより、`failed`/`queued`/`running`の行は`<Link>`でラップされず(結果ページへ遷移しない)、失敗行は警告色で表示されることを確認(実ブラウザでの目視は未実施)
+  - シナリオ6: ローカルD1へ`settings_name`が`NULL`の行を直接INSERTし、`GET /public/run-history`(絞り込みなし)にはこの行が`settingsName: null`で含まれ、いずれかの設定名で絞り込むとこの行が除外されることを確認
+  - シナリオ7: 既存の`GET /public/runs?targetId=`が、新設した行(`succeeded`のみ・レスポンス形`{runId, finishedAt, inputSource}`)について変更前と同じ挙動のままであることを`curl`で確認(`failed`行は含まれないことも確認)
+  - 残作業: デプロイ後、運営者自身による実ブラウザでの目視確認(履歴ページのレイアウト・「さらに読み込む」ボタンの実クリック動作・空状態メッセージの見た目)と、**リモートD1への`ALTER TABLE adjustment_runs ADD COLUMN settings_name TEXT`の適用**(本番データに対する操作のため、実行前に必ずユーザーへ確認する)が必要)
 
 ---
 

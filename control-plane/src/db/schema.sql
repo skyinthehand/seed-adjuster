@@ -6,6 +6,10 @@
 CREATE TABLE IF NOT EXISTS adjustment_runs (
   run_id TEXT PRIMARY KEY,
   target_id TEXT NOT NULL,
+  -- 実行時に選択された設定名(003フィーチャー、research.md R1)。既存の`CREATE TABLE IF NOT EXISTS`
+  -- 方式では稼働中のD1テーブルには反映されないため、既存環境へは別途
+  -- `ALTER TABLE adjustment_runs ADD COLUMN settings_name TEXT` の実行が必要(quickstart.md #1)。
+  settings_name TEXT,
   input_source TEXT NOT NULL CHECK (input_source IN ('google_sheets', 'startgg')),
   source_reference_json TEXT NOT NULL,
   audit_spreadsheet_id TEXT,

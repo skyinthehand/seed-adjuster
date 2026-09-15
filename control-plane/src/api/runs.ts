@@ -18,11 +18,17 @@ export async function handleCreateRun(request: Request, env: Env): Promise<Respo
   if (
     !body ||
     typeof body.targetId !== "string" ||
+    typeof body.settingsName !== "string" ||
+    body.settingsName.length === 0 ||
     (body.inputSource !== "google_sheets" && body.inputSource !== "startgg") ||
     !body.sourceReference ||
     typeof body.settingsSnapshot !== "object"
   ) {
-    return errorResponse(400, "INVALID_REQUEST", "targetId/inputSource/sourceReference/settingsSnapshot are required");
+    return errorResponse(
+      400,
+      "INVALID_REQUEST",
+      "targetId/settingsName/inputSource/sourceReference/settingsSnapshot are required",
+    );
   }
 
   // FR-012a: Startgg入力は監査ログ用スプレッドシートが未接続だと実行できない。
@@ -38,6 +44,7 @@ export async function handleCreateRun(request: Request, env: Env): Promise<Respo
   await createRun(env, {
     runId,
     targetId: body.targetId,
+    settingsName: body.settingsName,
     inputSource: body.inputSource,
     sourceReference: body.sourceReference,
     auditSpreadsheetId: body.auditSpreadsheetId ?? null,

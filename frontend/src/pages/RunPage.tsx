@@ -127,13 +127,16 @@ export function RunPage() {
 
   const executeRun = async () => {
     if (!pendingConfirmation) return;
-    const { targetId, settings } = pendingConfirmation;
+    const { targetId, settingsName: confirmedSettingsName, settings } = pendingConfirmation;
     setPendingConfirmation(null);
     setPhase("reading");
     try {
       let runId: string;
       if (inputSource === "google_sheets") {
-        ({ runId } = await runGoogleSheetsAdjustment({ targetId, spreadsheetId, worksheetName, settings }, setPhase));
+        ({ runId } = await runGoogleSheetsAdjustment(
+          { targetId, settingsName: confirmedSettingsName, spreadsheetId, worksheetName, settings },
+          setPhase,
+        ));
       } else {
         // FR-012a: Startgg入力は監査ログ用スプレッドシートが必須。未入力なら自動作成する。
         let resolvedAuditSpreadsheetId = auditSpreadsheetId;
@@ -149,7 +152,13 @@ export function RunPage() {
           return;
         }
         const startggResult = await runStartggAdjustment(
-          { targetId, phaseId, auditSpreadsheetId: resolvedAuditSpreadsheetId, settings },
+          {
+            targetId,
+            settingsName: confirmedSettingsName,
+            phaseId,
+            auditSpreadsheetId: resolvedAuditSpreadsheetId,
+            settings,
+          },
           setPhase,
         );
         runId = startggResult.runId;

@@ -14,6 +14,7 @@ export interface SizeWarning {
 
 export interface CreateRunRequest {
   targetId: string;
+  settingsName: string;
   inputSource: InputSource;
   sourceReference: Record<string, unknown>;
   auditSpreadsheetId: string | null;
@@ -62,6 +63,7 @@ export function createRun(input: CreateRunRequest): Promise<CreateRunResponse> {
 export interface RunStatusResponse {
   runId: string;
   targetId: string;
+  settingsName: string | null;
   status: "queued" | "running" | "succeeded" | "failed";
   startedAt: string | null;
   finishedAt: string | null;
@@ -151,6 +153,34 @@ export interface RunHistoryEntry {
 
 export function listPublicRuns(targetId: string): Promise<{ runs: RunHistoryEntry[] }> {
   return request(`/public/runs?targetId=${encodeURIComponent(targetId)}`);
+}
+
+// --- 実行履歴ページ(003フィーチャー) ---
+// listPublicRuns/RunHistoryEntry(上記、FR-016専用・targetId必須・成功のみ)とは別に、
+// 対象・設定名を問わず全実行(進行中・成功・失敗)を横断取得するための型・関数(research.md R2)。
+
+export interface RunHistorySummary {
+  runId: string;
+  targetId: string;
+  settingsName: string | null;
+  inputSource: InputSource;
+  status: "queued" | "running" | "succeeded" | "failed";
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export function listRunHistory(params: {
+  settingsName?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ runs: RunHistorySummary[]; hasMore: boolean }> {
+  const query = new URLSearchParams();
+  if (params.settingsName) query.set("settingsName", params.settingsName);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  return request(`/public/run-history${qs ? `?${qs}` : ""}`);
 }
 
 // --- Settings (US5) ---
