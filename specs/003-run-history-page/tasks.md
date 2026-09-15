@@ -68,7 +68,7 @@ description: "Task list for 実行履歴ページ"
 
 ### Implementation for User Story 2
 
-- [ ] T014 [P] [US2] `frontend/src/pages/HistoryPage.tsx`: 既存の`listSettingsNames()`(`controlPlaneClient.ts`、設定ページ・実行ページで使用中)を使って登録済み設定名一覧を取得し、「絞り込みなし」を含む`<select>`を追加する。選択が変わるたびに`settingsName`を指定して`listRunHistory()`を呼び直し、一覧・オフセットをリセットする(FR-007、research.md R4)
+- [ ] T014 [US2] `frontend/src/pages/HistoryPage.tsx`: 既存の`listSettingsNames()`(`controlPlaneClient.ts`、設定ページ・実行ページで使用中)を使って登録済み設定名一覧を取得し、「絞り込みなし」を含む`<select>`を追加する。選択が変わるたびに`settingsName`を指定して`listRunHistory()`を呼び直し、一覧・オフセットをリセットする(FR-007、research.md R4)
 - [ ] T015 [US2] `frontend/src/pages/HistoryPage.tsx`: `offset`/`limit`のstateを追加し、「さらに読み込む」ボタンを一覧末尾に表示する(`hasMore === true`のときのみ表示)。押下時は現在の`offset + limit`を新たな`offset`として`listRunHistory()`を呼び、結果を既存の一覧に追記する(FR-008、research.md R3)
 
 **Checkpoint**: User Stories 1 and 2 both work independently。
@@ -118,8 +118,7 @@ description: "Task list for 実行履歴ページ"
 ### Parallel Opportunities
 
 - Foundational内: T006([P])はT001-T005(control-plane側)と並行して着手できる。
-- User Story 2内: T014([P])はUser Story 1完了後、T015より先に(または並行に)着手できる(異なる関心事だが同一ファイルへの追記のため、実装順序の都合でP付きだが競合に注意)。
-- User Story 1・2・3はいずれも同一ファイル(`HistoryPage.tsx`)への逐次的な追記が中心のため、[P]マークは最小限(T006, T014)に留めている。
+- User Story 1・2・3はいずれも同一ファイル(`HistoryPage.tsx`)への逐次的な追記が中心のため、`[P]`マークがあるのはFoundationalのT006のみ。T009-T017は互いに同一ファイルを編集するため、記載順に逐次実装する。
 
 ---
 

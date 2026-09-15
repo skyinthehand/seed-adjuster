@@ -23,7 +23,7 @@
 - `status`: `AdjustmentRun.status`(`queued` | `running` | `succeeded` | `failed`)。履歴ページ上は`queued`/`running`をまとめて「実行中」と表示する(spec.md Edge Cases)
 - `createdAt`: `AdjustmentRun`の作成時刻。一覧のソートキー・表示上の「実行日時」として使う(research.md R5)
 - `startedAt` / `finishedAt`: 参考情報として保持するが、一覧のソート・表示上の主たる日時としては`createdAt`を用いる
-- `resultLink`: `status === "succeeded"`の場合のみ`/results/{runId}`への参照を持つ(FR-004, FR-005)。それ以外は`null`
+- `resultLink`: `status === "succeeded"`の場合のみ`/results/{runId}`への参照を持つ(FR-004, FR-005)。それ以外は`null`。**注**: `GET /public/run-history`のレスポンス(contracts/run-history.md)にこの名前のフィールドは存在しない — フロントエンドが`runId`と`status`から都度その場で導出する表示専用の値である
 
 ## フィルタ条件(永続データではない、リクエストパラメータ)
 
