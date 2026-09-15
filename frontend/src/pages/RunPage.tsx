@@ -5,6 +5,7 @@ import { resolveEffectiveSettings, type EffectiveSettings } from "../engine/sett
 import { isGoogleConnected } from "../integrations/googleAuth";
 import { isStartggConnected } from "../integrations/startgg";
 import { createSpreadsheet, extractSpreadsheetId } from "../integrations/googleSheets";
+import { buildGoogleSheetsTargetId, buildStartggTargetId } from "../engine/targetId";
 
 type Phase = "idle" | "reading" | "computing" | "writing" | "done" | "error";
 type InputSource = "google_sheets" | "startgg";
@@ -81,7 +82,10 @@ export function RunPage() {
       return;
     }
     setErrorMessage(null);
-    const targetId = inputSource === "google_sheets" ? `${spreadsheetId}:${worksheetName}` : `startgg:${phaseId}`;
+    const targetId =
+      inputSource === "google_sheets"
+        ? buildGoogleSheetsTargetId(spreadsheetId, worksheetName)
+        : buildStartggTargetId(phaseId);
     try {
       const settings = await resolveEffectiveSettings(targetId);
       setPendingConfirmation({ targetId, settings });

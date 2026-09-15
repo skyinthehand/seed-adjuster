@@ -4,6 +4,8 @@ import { saveStartggToken, isStartggConnected } from "../integrations/startgg";
 import { GOOGLE_OAUTH_CLIENT_ID } from "../config";
 import { getSettings, putSettings, type AdjustmentSettings } from "../services/controlPlaneClient";
 import { DEFAULT_WIZARD_ANSWERS, resolveDefaults, type WizardAnswers } from "../engine/settingsDefaults";
+import { extractSpreadsheetId } from "../integrations/googleSheets";
+import { buildGoogleSheetsTargetId, buildStartggTargetId, type InputSource } from "../engine/targetId";
 
 export function SettingsPage() {
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
@@ -101,7 +103,21 @@ const WAVE_OVERRIDE_LABELS: Record<(typeof WAVE_OVERRIDE_PARAM_NAMES)[number], {
 };
 
 function ParameterWizard({ onError }: { onError: (message: string | null) => void }) {
-  const [targetId, setTargetId] = useState("");
+  // 実行ページ(RunPage.tsx)と全く同じ構造の入力(自由記述の対象ID欄ではなく)にすることで、
+  // 対象IDの組み立て方が両ページで食い違う(=保存した上書き設定が実行時に見つからず既定値へ
+  // フォールバックする)ことが構造的に起きないようにしている(2026-09-15の実インシデント対応)。
+  const [inputSource, setInputSource] = useState<InputSource>("google_sheets");
+  const [spreadsheetId, setSpreadsheetId] = useState("");
+  const [worksheetName, setWorksheetName] = useState("");
+  const [phaseId, setPhaseId] = useState("");
+  const targetId =
+    inputSource === "google_sheets"
+      ? spreadsheetId && worksheetName
+        ? buildGoogleSheetsTargetId(spreadsheetId, worksheetName)
+        : ""
+      : phaseId
+        ? buildStartggTargetId(phaseId)
+        : "";
   const [loaded, setLoaded] = useState<AdjustmentSettings | null>(null);
   const [answers, setAnswers] = useState<WizardAnswers>(DEFAULT_WIZARD_ANSWERS);
   const [overrideInputs, setOverrideInputs] = useState<Record<string, string>>({});
@@ -169,18 +185,60 @@ function ParameterWizard({ onError }: { onError: (message: string | null) => voi
         対象(スプレッドシートIDとワークシート名、または<code>startgg:フェーズID</code>)ごとに以下の質問へ回答すると、
         推奨既定値一式が自動的に設定されます(FR-018)。個別のパラメータを直接入力すると、その値がここでの回答による既定値より優先されます(FR-019)。
       </p>
-      <div>
-        <label htmlFor="settingsTargetId">対象ID(実行ページの入力と同じ形式)</label>
-        <input
-          id="settingsTargetId"
-          value={targetId}
-          onChange={(e) => setTargetId(e.target.value)}
-          placeholder="spreadsheetId:worksheetName または startgg:phaseId"
-        />
+      <fieldset>
+        <legend>対象を選択(実行ページと同じ入力)</legend>
+        <label>
+          <input
+            type="radio"
+            name="settingsInputSource"
+            checked={inputSource === "google_sheets"}
+            onChange={() => setInputSource("google_sheets")}
+          />
+          Googleスプレッドシート
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="settingsInputSource"
+            checked={inputSource === "startgg"}
+            onChange={() => setInputSource("startgg")}
+          />
+          start.gg(仮組み済みシード)
+        </label>
+
+        {inputSource === "google_sheets" ? (
+          <div>
+            <div>
+              <label htmlFor="settingsSpreadsheetId">スプレッドシートID(もしくはスプレッドシートURL)</label>
+              <input
+                id="settingsSpreadsheetId"
+                value={spreadsheetId}
+                onChange={(e) => setSpreadsheetId(extractSpreadsheetId(e.target.value))}
+              />
+            </div>
+            <div>
+              <label htmlFor="settingsWorksheetName">ワークシート名</label>
+              <input
+                id="settingsWorksheetName"
+                value={worksheetName}
+                onChange={(e) => setWorksheetName(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="settingsPhaseId">start.gg フェーズID</label>
+            <input id="settingsPhaseId" value={phaseId} onChange={(e) => setPhaseId(e.target.value)} />
+          </div>
+        )}
+
+        <p>
+          対象ID: <code>{targetId || "(未入力)"}</code>
+        </p>
         <button type="button" onClick={handleLoad} disabled={!targetId}>
           読み込む
         </button>
-      </div>
+      </fieldset>
 
       {loaded && (
         <>
