@@ -25,6 +25,13 @@ interface RunPageDraft {
   settingsName: string;
 }
 
+/** Absolute, shareable URL for the (auth-free) results page — built manually rather than
+ * read from window.location, since HashRouter hasn't navigated there yet at the point this
+ * is needed (still on "/" while the run is finishing). */
+function buildResultsUrl(runId: string): string {
+  return `${window.location.origin}${window.location.pathname}#/results/${runId}`;
+}
+
 function loadDraft(): RunPageDraft | null {
   try {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -70,6 +77,11 @@ export function RunPage() {
   // overrides silently didn't apply (e.g. a targetId mismatch between this page and the
   // settings page) before time is spent on a run using the wrong parameters.
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+  // Set once a run finishes successfully, before navigating away — prompts the user to save
+  // the results URL first, since there is currently no way to browse past results without
+  // already having this link (FR-016's history list only works once you're already on a
+  // results page for the same target).
+  const [completedRun, setCompletedRun] = useState<{ resultsUrl: string; proceed: () => void } | null>(null);
 
   useEffect(() => {
     const draft: RunPageDraft = {
@@ -142,13 +154,17 @@ export function RunPage() {
         );
         runId = startggResult.runId;
         setPhase("done");
-        navigate(`/writeback/${runId}`, {
-          state: { phaseId: startggResult.phaseId, orderedSeedIds: startggResult.orderedSeedIds },
+        setCompletedRun({
+          resultsUrl: buildResultsUrl(runId),
+          proceed: () =>
+            navigate(`/writeback/${runId}`, {
+              state: { phaseId: startggResult.phaseId, orderedSeedIds: startggResult.orderedSeedIds },
+            }),
         });
         return;
       }
       setPhase("done");
-      navigate(`/results/${runId}`);
+      setCompletedRun({ resultsUrl: buildResultsUrl(runId), proceed: () => navigate(`/results/${runId}`) });
     } catch (err) {
       setPhase("error");
       setErrorMessage(err instanceof Error ? err.message : String(err));
@@ -270,6 +286,13 @@ export function RunPage() {
         onCancel={() => setPendingConfirmation(null)}
         onConfirm={executeRun}
       />
+      <RunCompletedModal
+        completed={completedRun}
+        onProceed={() => {
+          completedRun?.proceed();
+          setCompletedRun(null);
+        }}
+      />
     </section>
   );
 }
@@ -343,6 +366,77 @@ function RunConfirmationModal({
           </button>{" "}
           <button type="button" onClick={onCancel}>
             キャンセル
+          </button>
+        </div>
+      )}
+    </dialog>
+  );
+}
+
+/**
+ * 実行完了直後に表示するモーダル。結果表示ページ(認証不要)のURLを保存するよう促す。
+ * 現状、このURLを控えていないと後から結果を見つける手段がないため(結果ページの
+ * 「過去の実行一覧」も、既にその対象の結果ページを一度開いていないと使えない)。
+ */
+function RunCompletedModal({
+  completed,
+  onProceed,
+}: {
+  completed: { resultsUrl: string; proceed: () => void } | null;
+  onProceed: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (completed) {
+      setCopyStatus("idle");
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [completed]);
+
+  const handleCopy = async () => {
+    if (!completed) return;
+    try {
+      await navigator.clipboard.writeText(completed.resultsUrl);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onProceed}
+      style={{ padding: 0, border: "1px solid #ccc", maxWidth: "90vw", width: "32rem" }}
+    >
+      {completed && (
+        <div style={{ padding: "1rem" }}>
+          <h2 style={{ marginTop: 0 }}>調整が完了しました</h2>
+          <p role="alert">
+            結果ページのURLを保存してください。このURLを控えていないと、後から結果を見つける手段がありません。
+          </p>
+          <input
+            type="text"
+            readOnly
+            value={completed.resultsUrl}
+            onClick={(e) => e.currentTarget.select()}
+            style={{ width: "100%", boxSizing: "border-box" }}
+          />
+          <p>
+            <button type="button" onClick={handleCopy}>
+              URLをコピーする
+            </button>{" "}
+            {copyStatus === "copied" && "コピーしました。"}
+            {copyStatus === "failed" && "コピーに失敗しました。上の欄を選択して手動でコピーしてください。"}
+          </p>
+          <button type="button" onClick={onProceed}>
+            次へ進む
           </button>
         </div>
       )}
