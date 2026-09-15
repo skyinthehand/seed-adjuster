@@ -49,7 +49,8 @@ def search_player_matches(
     match_lookup: MatchLookup, target_user_id: int, opponent_user_id: int, least_num_entrants: int = 0
 ) -> list[MatchRecord]:
     key = (min(target_user_id, opponent_user_id), max(target_user_id, opponent_user_id))
-    return [m for m in match_lookup.get(key, []) if m["numEntrants"] >= least_num_entrants]
+    # least_num_entrants ちょうどの大会は含めない(> 判定、2026-09-15修正。以前は >= だった)。
+    return [m for m in match_lookup.get(key, []) if m["numEntrants"] > least_num_entrants]
 
 
 def make_match_point_calculator(

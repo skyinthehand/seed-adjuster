@@ -308,7 +308,7 @@ export function RunPage() {
 
 const SETTINGS_FIELD_LABELS: { key: keyof EffectiveSettings; label: string }[] = [
   { key: "fixed_seed_num", label: "固定するシード数(この順位まで調整せずそのまま)" },
-  { key: "conditional_least_num_entrants", label: "小規模大会とみなす参加者数の閾値(これ未満の大会は対戦履歴から除外)" },
+  { key: "conditional_least_num_entrants", label: "小規模大会とみなす参加者数の閾値(これ以下の大会は対戦履歴から除外)" },
   {
     key: "apply_conditional_least_num_entrants_seed_num",
     label: "小規模大会の除外を適用する範囲(この順位までの選手同士の比較にのみ適用)",

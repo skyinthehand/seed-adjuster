@@ -10,7 +10,7 @@ export interface WizardAnswers {
   fixedSeedNum: number;
   /** ②小規模大会での対戦経験を、誰について考慮外とするか */
   smallTournamentExclusion: SmallTournamentExclusion;
-  /** ③(②が"none"以外のときのみ意味を持つ)何人participant未満を小規模大会とするか */
+  /** ③(②が"none"以外のときのみ意味を持つ)何人participant以下を小規模大会とするか(2026-09-15: 境界値ちょうどの大会も除外対象に含めるよう修正) */
   smallTournamentMaxEntrants: number;
   /** ④(②が"topSeedsOnly"のときのみ意味を持つ)シード何位まで対象とするか */
   smallTournamentTopSeedLimit: number;
