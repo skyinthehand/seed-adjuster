@@ -21,6 +21,7 @@ Parquetファイルは以下の論理スキーマを持つテーブル1つで構
 
 - `userIdA` < `userIdB` に正規化し、同一ペアの対戦は複数行(対戦ごとに1行)として保持する(DuckDB-WASMでのSQL集計に適した縦持ち形式)。
 - 収録される対戦は`coveragePeriod.from`以降のみ(近さ指標への寄与が実質ゼロとなる古い対戦を除外する運用。research.md #2)。
+- 大会の`attr.json`の`labels`が`registration_restricted`(参加制限あり)・`irregular_rule`(非標準ルール)・`casual`(例: スマパのカジュアルトーナメント)のいずれかを`true`で持つイベントは、収録対象から除外する(通常のシード調整の根拠として適切でない対戦のため。2026-09-15追加、`indexer/src/build_index.py`の`EXCLUDED_LABELS`)。
 - 1行28バイト(int64×2 + int64 + int32)の整数のみで構成されるため、Parquetの辞書・デルタ圧縮との相性がよい。実測データに基づく規模見積もりはresearch.md #2「実測に基づく規模・ダウンロード時間の見積もり」を参照(全期間・全地域を対象としても圧縮後概ね1桁MB台〜十数MB程度と推定)。
 
 ## マニフェスト(JSON、Parquet本体と併せて配布)

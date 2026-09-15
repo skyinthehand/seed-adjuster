@@ -56,6 +56,12 @@ FORMAT_VERSION = 1
 # Assumptions) — excluding them keeps the index small without materially changing results.
 COVERAGE_YEARS = 5
 MAX_WORKERS = 16
+# attr.json's `labels` object flags events whose results shouldn't inform seeding decisions:
+# registration_restricted (invite-only/limited entry, not representative of open competition),
+# irregular_rule (non-standard ruleset, e.g. squad strike), casual (e.g. スマパ's casual bracket,
+# the exact case reported by the user — non-competitive by design). A label is present with
+# value `true` when it applies; it is omitted entirely when it doesn't (never `false`).
+EXCLUDED_LABELS = {"registration_restricted", "irregular_rule", "casual"}
 
 
 @dataclass
@@ -117,7 +123,12 @@ def read_event_matches(
     """Returns (rows, ok). ok=False only for a genuine upstream data gap (missing/malformed
     file, or attr.json missing timestamp/num_entrants — e.g. an event still being collected,
     see smash_database's awaiting_resume.json) — never for a transient fetch problem, since
-    this reads from the already-fully-cloned local checkout (see module docstring)."""
+    this reads from the already-fully-cloned local checkout (see module docstring).
+
+    An event whose attr.json labels it with any of EXCLUDED_LABELS returns ([], True): this is
+    not a data gap (the file is present and well-formed), it's a deliberate exclusion of
+    non-representative results (e.g. casual/invite-only/non-standard-rule brackets) from
+    informing seeding decisions."""
     event_dir = smash_db_dir / event_path
     try:
         matches_data = json.loads((event_dir / "matches.json").read_text(encoding="utf-8"))
@@ -129,6 +140,10 @@ def read_event_matches(
     num_entrants = attr_data.get("num_entrants")
     if timestamp is None or num_entrants is None:
         return [], False
+
+    labels = attr_data.get("labels") or {}
+    if any(labels.get(label) for label in EXCLUDED_LABELS):
+        return [], True
 
     rows: list[MatchRow] = []
     for m in matches_data.get("data", []):
