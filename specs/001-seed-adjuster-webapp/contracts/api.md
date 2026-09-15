@@ -33,6 +33,7 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   ```json
   {
     "targetId": "string",
+    "settingsName": "string",
     "inputSource": "google_sheets" | "startgg",
     "sourceReference": { "spreadsheetId": "...", "worksheetName": "..." } | { "eventId": "...", "phaseId": "..." },
     "auditSpreadsheetId": "string | null",
@@ -41,6 +42,7 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
     "entrantCount": number
   }
   ```
+  `settingsName`は003フィーチャー(実行履歴ページ)で追加、必須(空文字不可)。実行時に選択された設定名をそのまま実行記録に残し、履歴一覧・設定名フィルタに使う(003/data-model.md参照)。
 - Response 202: `{ "runId": string, "status": "queued", "sizeWarning": { "reason": "string", "estimatedDurationSeconds": number, "entrantCount": number } | null }`。事前見積もり上60分を大幅に超える場合でも実行は拒否せず、`sizeWarning`に警告情報を添えて202を返す(FR-003a)。
 - Response 428: 監査ログ用スプレッドシート未接続(start.gg入力時、FR-012a)。`{ "error": { "code": "AUDIT_SPREADSHEET_REQUIRED", "message": "..." } }`
 
@@ -70,6 +72,7 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
   {
     "runId": "string",
     "targetId": "string",
+    "settingsName": "string | null",
     "status": "queued" | "running" | "succeeded" | "failed",
     "startedAt": "ISO8601 | null",
     "finishedAt": "ISO8601 | null",
@@ -79,6 +82,7 @@ Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
     "writebackApproved": "boolean | null"
   }
   ```
+  `settingsName`は003フィーチャーで追加。本フィーチャー実装より前に作成された実行記録では`null`。
 
 ### `POST /runs/{runId}/writeback-recorded`
 start.gg入力の場合、運営者が確認画面で書き戻しを承認し、**ブラウザが直接start.gg APIへ書き戻しを実行した後**、その完了を記録するために呼び出す(FR-011)。制御プレーン自身はstart.ggへの書き込みを行わない。
@@ -106,8 +110,13 @@ start.gg入力の場合、運営者が確認画面で書き戻しを承認し、
 - Response 404: 指定`runId`が存在しない、または`status`が`succeeded`でない
 
 ### `GET /public/runs?targetId={targetId}`
-同一対象に対する過去の実行一覧を返す(FR-016)。
+同一対象に対する過去の実行一覧を返す(FR-016)。`status = "succeeded"`のもののみが対象(既存挙動、変更なし)。
 - Response 200: `{ "runs": [ { "runId": string, "finishedAt": "ISO8601", "inputSource": "string" } ] }`(新しい順)
+
+### `GET /public/run-history`(003フィーチャーで追加)
+対象・設定名を問わず、全実行(進行中・成功・失敗すべて)を新しい順に一覧表示する実行履歴ページ用。詳細は[003/contracts/run-history.md](../../003-run-history-page/contracts/run-history.md)を参照。
+- Query: `settingsName`(任意、完全一致)、`limit`(任意、既定30・上限100)、`offset`(任意、既定0)
+- Response 200: `{ "runs": [ { "runId": string, "targetId": string, "settingsName": "string | null", "inputSource": "google_sheets" | "startgg", "status": "queued" | "running" | "succeeded" | "failed", "createdAt": "ISO8601", "startedAt": "ISO8601 | null", "finishedAt": "ISO8601 | null" } ], "hasMore": boolean }`(`createdAt`降順)
 
 ## start.gg CORSリレー(条件付き、research.md #6)
 

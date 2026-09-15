@@ -52,6 +52,7 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 
 - `runId`: 一意識別子(公開結果ページのURLにも使用)
 - `targetId`: 対象の識別子(入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID。AdjustmentSettingsの設定名とは独立した別の識別子空間。2026-09-15方針変更)
+- `settingsName`(003フィーチャーで追加): 実行時に選択された設定名(`AdjustmentSettings.settingsName`)。実行履歴ページでの一覧表示・設定名フィルタに使う。本フィーチャー実装より前の実行記録では`null`(詳細は[003/data-model.md](../003-run-history-page/data-model.md))
 - `inputSource`: `google_sheets` | `startgg`
 - `sourceReference`: 入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID(トークンなど秘匿情報は含まない)
 - `auditSpreadsheetId`: 監査ログ保存先スプレッドシートID(FR-012a。未設定の場合、start.gg入力では実行不可)
