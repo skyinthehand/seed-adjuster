@@ -161,15 +161,23 @@ export interface AdjustmentSettings {
   overrides: Record<string, unknown>;
 }
 
-export function getSettings(targetId: string): Promise<AdjustmentSettings> {
-  return request(`/settings/${encodeURIComponent(targetId)}`);
+// settingsName is a free-form name the user chooses on the settings page — independent from
+// AdjustmentRun's targetId (2026-09-15 policy change, see data-model.md AdjustmentSettings).
+export function getSettings(settingsName: string): Promise<AdjustmentSettings> {
+  return request(`/settings/${encodeURIComponent(settingsName)}`);
+}
+
+/** All registered settings names — RunPage uses this to force picking one (no blank/free-text
+ * escape hatch), so a typo can't silently fall back to defaults unnoticed. */
+export function listSettingsNames(): Promise<{ names: string[] }> {
+  return request(`/settings`);
 }
 
 export function putSettings(
-  targetId: string,
+  settingsName: string,
   input: Pick<AdjustmentSettings, "wizardAnswers" | "overrides" | "resolvedDefaults">,
 ): Promise<AdjustmentSettings> {
-  return request(`/settings/${encodeURIComponent(targetId)}`, {
+  return request(`/settings/${encodeURIComponent(settingsName)}`, {
     method: "PUT",
     body: JSON.stringify(input),
   });

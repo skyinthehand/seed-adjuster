@@ -7,7 +7,7 @@ import {
 } from "./api/runs";
 import { handleGetPublicResult, handleListPublicRuns } from "./api/public";
 import { handleStartggRelay } from "./api/relay";
-import { handleGetSettings, handlePutSettings } from "./api/settings";
+import { handleGetSettings, handlePutSettings, handleListSettings } from "./api/settings";
 import { corsHeaders, errorResponse } from "./api/http";
 
 export interface Env {
@@ -58,11 +58,15 @@ async function route(pathname: string, method: string, request: Request, env: En
     return handleStartggRelay(request);
   }
 
+  if (pathname === "/settings" && method === "GET") {
+    return handleListSettings(env);
+  }
+
   const settingsMatch = pathname.match(/^\/settings\/([^/]+)$/);
   if (settingsMatch) {
-    const targetId = decodeURIComponent(settingsMatch[1]);
-    if (method === "GET") return handleGetSettings(targetId, env);
-    if (method === "PUT") return handlePutSettings(targetId, request, env);
+    const settingsName = decodeURIComponent(settingsMatch[1]);
+    if (method === "GET") return handleGetSettings(settingsName, env);
+    if (method === "PUT") return handlePutSettings(settingsName, request, env);
   }
 
   const publicResultMatch = pathname.match(/^\/public\/results\/([^/]+)$/);

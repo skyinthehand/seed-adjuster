@@ -9,7 +9,7 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 | エンティティ | 保管先 | 備考 |
 |---|---|---|
 | ConnectedAccount | ブラウザローカル(IndexedDB / メモリ) | サーバーには一切送信・保存しない(research.md #4, #5) |
-| AdjustmentSettings | Cloudflare D1(control-plane) | 対象(大会)単位で保持。秘匿情報を含まない共有状態 |
+| AdjustmentSettings | Cloudflare D1(control-plane) | 利用者が自由に名付ける「設定名」単位で保持(対象の識別子とは独立、2026-09-15方針変更)。秘匿情報を含まない共有状態 |
 | AdjustmentRun | Cloudflare D1(control-plane) | 実行状態の記録。ロックは行わず、同一対象への複数実行を許容する(research.md #3) |
 | SeedEntry | 実行時にGoogleスプレッドシート/start.ggからブラウザが直接読み込む(永続保管はしない) | |
 | AdjustedSeedResult | Googleスプレッドシート(監査ログ用、ブラウザが直接書き込む) + D1(ブラウザが提出する公開用サニタイズ済みコピー) | 公開結果APIの読み出し元はD1側 |
@@ -34,9 +34,11 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 
 ## AdjustmentSettings(Cloudflare D1)
 
-調整ロジックのパラメータ。対象(大会=入力元スプレッドシート or start.ggイベント)単位で保持し、Yes/No回答由来の既定値と個別上書き値を区別する。秘匿情報を含まないため、サーバー(D1)に保存して複数端末・複数運営者間で共有してよい。
+調整ロジックのパラメータ。**利用者が自由入力で名付ける「設定名」単位**で保持し、Yes/No回答由来の既定値と個別上書き値を区別する。秘匿情報を含まないため、サーバー(D1)に保存して複数端末・複数運営者間で共有してよい。
 
-- `targetId`: 対象の識別子(入力元スプレッドシートIDまたはstart.ggイベント/フェーズID)
+**方針転換(2026-09-15)**: 当初は対象(入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID)から自動導出した識別子をそのままキーとしていたが、実行ページと設定ページでこの導出結果が完全一致しないと保存した上書き値が見つからず既定値へ黙ってフォールバックする事故が実際に発生した。設定を対象の識別子(`AdjustmentRun.targetId`)から切り離し、利用者が自由に名付ける「設定名」で登録・実行時に明示的に指定する方式に変更した。1つの設定名を複数の対象で使い回すこともできる。
+
+- `settingsName`: 利用者が自由に付けた設定名(主キー。対象の識別子とは無関係)
 - `wizardAnswers`: Yes/No質問への回答一覧(例: 「大会規模は小規模か」「対戦履歴の参照期間を短くするか」等)
 - `resolvedDefaults`: `wizardAnswers`から導出された推奨既定値一式(固定シード数、探索幅倍率、対戦履歴として考慮する最低大会規模、参照期間の上限 等)
 - `overrides`: 利用者が個別に上書きした値(キーはパラメータ名)
@@ -49,7 +51,7 @@ spec.md の Key Entities を、research.md で決定した保管先(ブラウザ
 シード自動調整1回分の実行記録。**計算そのものはブラウザ内で行われ、Workerはその開始・進捗・完了をブラウザからの報告として記録するのみ。ロックは行わず、同一対象への複数実行を妨げない**(方針変更、spec.md Clarifications参照。research.md #3)。
 
 - `runId`: 一意識別子(公開結果ページのURLにも使用)
-- `targetId`: 対象の識別子(AdjustmentSettingsと同じ単位)
+- `targetId`: 対象の識別子(入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID。AdjustmentSettingsの設定名とは独立した別の識別子空間。2026-09-15方針変更)
 - `inputSource`: `google_sheets` | `startgg`
 - `sourceReference`: 入力元スプレッドシートID+ワークシート名、またはstart.ggイベント/フェーズID(トークンなど秘匿情報は含まない)
 - `auditSpreadsheetId`: 監査ログ保存先スプレッドシートID(FR-012a。未設定の場合、start.gg入力では実行不可)

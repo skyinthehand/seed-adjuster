@@ -6,6 +6,7 @@ import { isGoogleConnected } from "../integrations/googleAuth";
 import { isStartggConnected } from "../integrations/startgg";
 import { createSpreadsheet, extractSpreadsheetId } from "../integrations/googleSheets";
 import { buildGoogleSheetsTargetId, buildStartggTargetId } from "../engine/targetId";
+import { listSettingsNames } from "../services/controlPlaneClient";
 
 type Phase = "idle" | "reading" | "computing" | "writing" | "done" | "error";
 type InputSource = "google_sheets" | "startgg";
@@ -21,6 +22,7 @@ interface RunPageDraft {
   phaseId: string;
   auditSpreadsheetId: string;
   autoCreateAudit: boolean;
+  settingsName: string;
 }
 
 function loadDraft(): RunPageDraft | null {
@@ -34,6 +36,7 @@ function loadDraft(): RunPageDraft | null {
 
 interface PendingConfirmation {
   targetId: string;
+  settingsName: string;
   settings: EffectiveSettings;
 }
 
@@ -45,6 +48,21 @@ export function RunPage() {
   const [phaseId, setPhaseId] = useState(() => loadDraft()?.phaseId ?? "");
   const [auditSpreadsheetId, setAuditSpreadsheetId] = useState(() => loadDraft()?.auditSpreadsheetId ?? "");
   const [autoCreateAudit, setAutoCreateAudit] = useState(() => loadDraft()?.autoCreateAudit ?? false);
+  // 設定ページで登録した「設定名」(対象IDとは独立)。一覧から必ず選ばせる(自由入力・空欄は
+  // 許容しない)ことで、名前の打ち間違いや未登録での実行が起きないようにする(2026-09-16)。
+  // 以前は対象IDから設定を自動導出しており、対象IDの組み立て方が設定ページと実行ページで
+  // 食い違うと上書き設定が黙って無視される事故が起きたため、まず自由入力の設定名へ変更した
+  // (2026-09-15)。しかし自由入力+空欄可のままでは同種の事故(打ち間違い・未設定)が
+  // 再発しうるため、登録済みの名前から選択必須にした。
+  const [settingsName, setSettingsName] = useState(() => loadDraft()?.settingsName ?? "");
+  const [settingsNames, setSettingsNames] = useState<string[] | null>(null);
+  const [settingsNamesError, setSettingsNamesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listSettingsNames()
+      .then((r) => setSettingsNames(r.names))
+      .catch((err) => setSettingsNamesError(err instanceof Error ? err.message : String(err)));
+  }, []);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Set once the user submits the form; cleared on cancel or once the confirmed run starts.
@@ -61,13 +79,14 @@ export function RunPage() {
       phaseId,
       auditSpreadsheetId,
       autoCreateAudit,
+      settingsName,
     };
     try {
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
     } catch {
       // Best-effort only (e.g. private browsing may disable localStorage).
     }
-  }, [inputSource, spreadsheetId, worksheetName, phaseId, auditSpreadsheetId, autoCreateAudit]);
+  }, [inputSource, spreadsheetId, worksheetName, phaseId, auditSpreadsheetId, autoCreateAudit, settingsName]);
 
   const isRunning = phase === "reading" || phase === "computing" || phase === "writing";
 
@@ -87,8 +106,8 @@ export function RunPage() {
         ? buildGoogleSheetsTargetId(spreadsheetId, worksheetName)
         : buildStartggTargetId(phaseId);
     try {
-      const settings = await resolveEffectiveSettings(targetId);
-      setPendingConfirmation({ targetId, settings });
+      const settings = await resolveEffectiveSettings(settingsName);
+      setPendingConfirmation({ targetId, settingsName, settings });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     }
@@ -212,7 +231,32 @@ export function RunPage() {
           </div>
         )}
 
-        <button type="submit" disabled={isRunning}>
+        <div>
+          <label htmlFor="settingsName">使用する設定名</label>
+          {settingsNamesError && <p role="alert">設定名一覧の取得に失敗しました: {settingsNamesError}</p>}
+          {settingsNames && settingsNames.length === 0 ? (
+            <p role="alert">登録済みの設定がありません。先に設定ページでパラメータを登録してください。</p>
+          ) : (
+            <select
+              id="settingsName"
+              value={settingsName}
+              onChange={(e) => setSettingsName(e.target.value)}
+              required
+              disabled={isRunning || !settingsNames}
+            >
+              <option value="" disabled hidden>
+                {settingsNames ? "選択してください" : "読み込み中..."}
+              </option>
+              {settingsNames?.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <button type="submit" disabled={isRunning || !settingsNames || settingsNames.length === 0}>
           {isRunning ? "実行中..." : "シード自動調整を実行"}
         </button>
       </form>
@@ -241,9 +285,9 @@ const SETTINGS_FIELD_LABELS: { key: keyof EffectiveSettings; label: string }[] =
 ];
 
 /**
- * 実行前の確認モーダル。設定した対象ID向けの上書き値が正しく反映されているか(対象IDの
- * 不一致等で意図せず既定値にフォールバックしていないか)を、実行前に一目で確認できるように
- * する。あわせて処理に時間がかかる可能性がある旨も明示する。
+ * 実行前の確認モーダル。指定した設定名に対して実際に使われる設定値を、実行前に一目で
+ * 確認できるようにする(設定名の入力ミス等で意図せず既定値になっていないか)。あわせて
+ * 処理に時間がかかる可能性がある旨も明示する。
  */
 function RunConfirmationModal({
   pending,
@@ -274,7 +318,10 @@ function RunConfirmationModal({
           <p>
             対象ID: <code>{pending.targetId}</code>
           </p>
-          <p>この対象IDに対して、実際に使われる設定値は以下の通りです。意図した値と異なる場合は、設定ページで対象IDを確認してください。</p>
+          <p>
+            使用する設定名: <code>{pending.settingsName}</code>
+          </p>
+          <p>実際に使われる設定値は以下の通りです。意図した値と異なる場合は、設定名が正しいか確認してください。</p>
           <ul>
             {SETTINGS_FIELD_LABELS.map(({ key, label }) => (
               <li key={key}>

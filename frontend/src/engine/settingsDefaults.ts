@@ -52,13 +52,15 @@ export interface EffectiveSettings {
 }
 
 /**
- * FR-019: fetch the target's saved settings (wizard-derived defaults + overrides) and
+ * FR-019: fetch the named settings profile (wizard-derived defaults + overrides) and
  * resolve them into the concrete values a run actually uses, override taking priority.
- * If no settings have been saved yet for this target, falls back to the wizard's own
- * defaults (DEFAULT_WIZARD_ANSWERS) so a first-time run still gets sane values.
+ * `settingsName` is a free-form name the user chooses on the settings page, independent
+ * from the run's targetId (2026-09-15 policy change — see data-model.md AdjustmentSettings).
+ * If no settings have been saved yet under this name (including when left blank), falls
+ * back to the wizard's own defaults (DEFAULT_WIZARD_ANSWERS) so a run still gets sane values.
  */
-export async function resolveEffectiveSettings(targetId: string): Promise<EffectiveSettings> {
-  const saved = await getSettings(targetId).catch(() => null);
+export async function resolveEffectiveSettings(settingsName: string): Promise<EffectiveSettings> {
+  const saved = await getSettings(settingsName).catch(() => null);
   const wizardAnswers: WizardAnswers = {
     ...DEFAULT_WIZARD_ANSWERS,
     ...(saved?.wizardAnswers as Partial<WizardAnswers> | undefined),

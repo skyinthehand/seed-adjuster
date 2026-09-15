@@ -8,11 +8,17 @@
 
 ## 設定
 
-### `GET /settings/{targetId}`
-対象の現在の`AdjustmentSettings`(推奨既定値・上書き値)を取得する。
+`{settingsName}`は利用者が自由に付ける設定名で、`実行`セクションの`targetId`(対象の識別子)とは独立した別の識別子空間(2026-09-15方針変更、data-model.md参照)。1つの設定名を複数の対象で使い回せる。
+
+### `GET /settings`
+登録済みの設定名一覧を返す。実行ページが「使用する設定名」の選択肢(空欄を許容しない、必ずどれかを選ばせる)として使う。
+- Response 200: `{ "names": ["string", ...] }`(名前順)
+
+### `GET /settings/{settingsName}`
+その設定名の現在の`AdjustmentSettings`(推奨既定値・上書き値)を取得する。
 - Response 200: `{ "wizardAnswers": object, "resolvedDefaults": object, "overrides": object }`
 
-### `PUT /settings/{targetId}`
+### `PUT /settings/{settingsName}`
 Yes/No回答および個別上書き値を更新する(FR-018, FR-019)。
 - Request: `{ "wizardAnswers": object, "overrides": object }`
 - Response 200: 更新後の`AdjustmentSettings`
