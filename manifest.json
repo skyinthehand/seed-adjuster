@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "generatedAt": "2026-11-01T21:51:33Z",
+  "coveragePeriod": {
+    "from": "2021-11-02T21:51:09Z",
+    "to": "2026-11-01T21:51:33Z"
+  },
+  "parquetUrl": "https://raw.githubusercontent.com/skyinthehand/seed-adjuster/published-index/match-index.parquet"
+}
